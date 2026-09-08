@@ -12,7 +12,7 @@ class PublicationTests(unittest.TestCase):
         now = datetime(2026, 9, 6, 12, tzinfo=timezone.utc)
         def event(i, **changes):
             return {"id": i, "created_at": now.isoformat(), "enough_data": True,
-                    "problem_supported": True, "numeric_data": [{"source_url":"https://example.org/data", "points": [{"value":1}, {"value":2}]}],
+                    "problem_supported": True, "numeric_data": [{"ordered": True, "source_url":"https://example.org/data", "points": [{"label":"2024", "value":1}, {"label":"2025", "value":2}]}],
                     "source_count": 2, "popularity_score": 100-i, "popularity_updated_at": now.isoformat(), **changes}
         events = [event(1), event(2, numeric_data=[]), event(3), event(4),
                   event(5, created_at=(now-timedelta(hours=37)).isoformat()),
@@ -20,7 +20,8 @@ class PublicationTests(unittest.TestCase):
                   event(7, source_count=1), event(8, problem_supported=False),
                   event(9), event(10, created_at=(now-timedelta(hours=36)).isoformat()),
                   event(11, created_at=None)]
-        analyses = [{"event_id": i, "status": "ready", "analysis": {"binary_questions": [{"question":"A?"},{"question":"B?"},{"question":"C?"}]}}
+        analyses = [{"event_id": i, "status": "ready", "analysis": {"binary_questions": [{"question":"A?"},{"question":"B?"},{"question":"C?"}],
+                     "charts": [{"chart_type":"line", "source_urls":["https://example.org/data"], "points":[{"label":"2024", "value":1}, {"label":"2025", "value":2}]}]}}
                     for i in [1,2,3,5,6,7,8,9,10]]
         analyses[2]["analysis"]["binary_questions"] = [1,2]
         self.assertEqual(ready_event_ids(events, analyses, now), [1,8,9,10])

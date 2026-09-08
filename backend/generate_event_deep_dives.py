@@ -12,7 +12,8 @@ from deep_dive.research_event import load_event, research_event
 from deep_dive.save_analysis import save_analysis
 from deep_dive.models import EventAnalysis, ResearchBundle
 from event_images import refresh_event_covers
-from pipeline_visibility import publish_ready_events, valid_questions, valid_numeric_data
+from numeric_data_quality import valid_analysis_timeline
+from pipeline_visibility import enforce_previous_year_gate, publish_ready_events, valid_questions, valid_numeric_data
 from popularity import POLICY, current_score
 
 
@@ -31,16 +32,22 @@ def main() -> None:
         action="store_true",
         help="Regenerate recent analyses even when numeric data already exists.",
     )
+    parser.add_argument(
+        "--validate-only", action="store_true",
+        help="Apply the previous-calendar-year data gate to saved events without research or OpenAI calls.",
+    )
     args = parser.parse_args()
 
     db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    if args.validate_only:
+        publish_ready_events(db)
+        return
     model = os.getenv("OPENAI_DEEP_DIVE_MODEL", "gpt-5.4-mini")
     cutoff = datetime.now(timezone.utc) - timedelta(hours=EVENT_WINDOW_HOURS)
 
     events = (
         db.table("events")
-        .select("id,created_at,numeric_data,enough_data,problem_supported,source_count,popularity_score,popularity_updated_at")
+        .select("id,created_at,numeric_data,enough_data,is_visible,problem_supported,source_count,popularity_score,popularity_updated_at")
         .gte("created_at", cutoff.isoformat())
         .lte("created_at", datetime.now(timezone.utc).isoformat())
         .order("popularity_score", desc=True)
@@ -51,7 +58,12 @@ def main() -> None:
     eligible = [event for event in events if (event.get("source_count") or 0) >= 2
                 and current_score(event, datetime.now(timezone.utc)) >= POLICY["display_threshold"]]
     ids = [int(event["id"]) for event in eligible]
-    stored = (db.table("event_analyses").select("event_id,status,analysis,research").in_("event_id", ids).execute().data) if ids else []
+    all_ids = [int(event["id"]) for event in events]
+    stored = (db.table("event_analyses").select("event_id,status,analysis,research").in_("event_id", all_ids).execute().data) if all_ids else []
+    # Previously ready events must disappear even if their replacement research fails.
+    rejected = enforce_previous_year_gate(db, events, stored)
+    print(f"Revalidated previous_year={datetime.now(timezone.utc).year - 1} | rejected={len(rejected)}", flush=True)
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     stored_by_id = {int(row["event_id"]): row for row in stored}
     ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") == 2}
     pending = eligible if args.force else [event for event in eligible if not event.get("enough_data") or not valid_numeric_data(event.get("numeric_data")) or int(event["id"]) not in ready]
@@ -63,7 +75,7 @@ def main() -> None:
 
         try:
             cached = stored_by_id.get(event_id, {})
-            if not args.force and cached.get("status") == "ready" and cached.get("research") and valid_numeric_data(event.get("numeric_data")):
+            if not args.force and cached.get("research") and valid_numeric_data(event.get("numeric_data")):
                 try:
                     research = ResearchBundle.model_validate(cached["research"])
                     print(f"Refresh questions from saved research | event={event_id}")
@@ -80,7 +92,7 @@ def main() -> None:
                     {
                         "enough_data": False,
                         "is_visible": False,
-                        "numeric_data": [],
+                        "numeric_data": [series.model_dump(mode="json") for series in research.numeric_series],
                         "problem_supported": research.problem_supported,
                         "central_problem": research.central_problem,
                     }
@@ -95,12 +107,13 @@ def main() -> None:
                     },
                     on_conflict="event_id",
                 ).execute()
-                reason = "no numeric data"
+                reason = f"missing observed {datetime.now(timezone.utc).year - 1} baseline in every time series"
                 print(f"Deep dive skipped | event={event_id} | {reason}")
                 continue
 
             old_analysis = cached.get("analysis") or {}
-            if not args.force and old_analysis.get("schema_version") == 2 and valid_questions(old_analysis):
+            if (not args.force and old_analysis.get("schema_version") == 2 and valid_questions(old_analysis)
+                    and valid_analysis_timeline(old_analysis, [series.model_dump(mode="json") for series in research.numeric_series])):
                 # A wording repair needs no second data-story generation or web search.
                 analysis = EventAnalysis.model_validate({**old_analysis, "question_revision": 2})
                 analysis.binary_questions = review_questions(client, model, research, analysis.binary_questions)

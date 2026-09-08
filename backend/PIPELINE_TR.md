@@ -28,7 +28,23 @@ Popülerlik önce araştırma sırasını belirler. Son adım, hazır analiz ve 
 veriye sahip, en az iki güncel kaynağı bulunan olayları görünür yapar. Son
 36 saatin dışındaki haberler gündemde gösterilmez; eski kayıtlar silinmez.
 Güncel puanı en az 5 olan uygun olayların ilk 3'ü Gündem'de, diğerleri hemen
-sonrasındaki Other Events sekmesinde gösterilir.
+sonrasındaki Diğer Haberler sekmesinde gösterilir.
+
+Veri güncelliği şartı: en az bir zaman serisi ve ekranda gösterilen en az bir
+zaman grafiği bulunmalı. Her zaman serisi/grafiği, içinde bulunulan UTC takvim
+yılından bir önceki yıla ait kaynaklı, gerçek sayısal gözlem içermeli (2026'da
+2025, 2027'de 2026). Kaynağın yayın tarihi, metindeki yıl, tahmin/projeksiyon veya
+eksik değer bu şartı sağlamaz. Şartı geçmeyen yeni ve mevcut güncel olaylar
+`enough_data=false` (0), `is_visible=false` ve `status=insufficient_data` olarak
+işaretlenir. Yeni veri uydurulmaz; sonraki araştırma geçerli veri bulursa olay
+yeniden değerlendirilir. Yalnızca kayıtlı veriyi kontrol etmek için:
+
+```bash
+python3 backend/generate_event_deep_dives.py --validate-only
+```
+
+Bu komut araştırma yapmaz; Supabase'deki uygunluk ve görünürlük işaretlerini
+günceller. Yeni araştırma başarısız olsa bile eski, şartı geçmeyen olay yayımlanmaz.
 
 GitHub Actions dosyası Türkiye saatiyle 00:17, 06:17, 12:17 ve 18:17 için hazırdır.
 Ancak yalnızca siteyi yayınlamak bu görevi başlatmaz: Nötron GitHub deposunda

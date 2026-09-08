@@ -12,6 +12,8 @@ The workflow runs every six hours (00:17, 06:17, 12:17, 18:17 Europe/Istanbul), 
 
 Order: `rss_fetcher.py` → `clustering_news_enriched.py` → `update_event_popularity_v02.py` → `generate_event_deep_dives.py`.
 
-Positive, neutral and negative events are welcome. Only the last 36 hours qualify. Gündem displays at most three eligible events; remaining qualifying events appear in Other Events.
+Positive, neutral and negative events are welcome. Only the last 36 hours qualify. Gündem displays at most three eligible events; remaining qualifying events appear in Diğer Haberler.
+
+Publication also requires a sourced observed point from the previous UTC calendar year in every time series and displayed timeline, with at least one timeline shown. Missing historical baselines set `enough_data=false` and hide the event, including previously ready events. `python3 backend/generate_event_deep_dives.py --validate-only` applies this gate to saved data without research calls.
 
 See [backend/POPULARITY.md](backend/POPULARITY.md) for scoring and qualification rules.

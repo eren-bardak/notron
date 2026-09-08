@@ -1,4 +1,5 @@
 from .models import EventAnalysis, ResearchBundle
+from numeric_data_quality import valid_analysis_timeline
 
 
 def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis) -> None:
@@ -10,13 +11,14 @@ def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis) -> None
 
     research_data = research.model_dump(mode="json")
     analysis_data = analysis.model_dump(mode="json")
+    enough_data = valid_analysis_timeline(analysis_data, numeric_data)
     previous = db.table("event_analyses").select("analysis").eq("event_id", analysis.event_id).limit(1).execute().data
     selected_image = (previous[0].get("analysis") or {}).get("image_selection") if previous else None
     if selected_image:
         analysis_data["image_selection"] = selected_image
     base_row = {
         "event_id": analysis.event_id,
-        "status": "ready",
+        "status": "ready" if enough_data else "insufficient_data",
         "research": research_data,
         "analysis": analysis_data,
         "generated_at": analysis.generated_at,
@@ -57,8 +59,11 @@ def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis) -> None
                 if evidence.url
             ],
             "numeric_data": numeric_data,
-            "enough_data": bool(numeric_data),
+            "enough_data": enough_data,
+            **({"is_visible": False} if not enough_data else {}),
             "problem_supported": research.problem_supported,
             "central_problem": research.central_problem,
         }
     ).eq("id", analysis.event_id).execute()
+    if not enough_data:
+        raise ValueError("Analysis lacks a sourced, observed previous-calendar-year timeline baseline; enough_data=0 and is_visible=false.")

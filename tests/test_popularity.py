@@ -114,9 +114,10 @@ class ScoreTests(unittest.TestCase):
         def event(i,**changes):
             return {'id':i,'created_at':NOW.isoformat(),'popularity_updated_at':NOW.isoformat(),'popularity_score':30-i,
                     'enough_data':True,'problem_supported':True,'source_count':2,
-                    'numeric_data':[{'source_url':'https://example.org/data','points':[{'value':1},{'value':2}]}],**changes}
+                    'numeric_data':[{'ordered':True,'source_url':'https://example.org/data','points':[{'label':'2024','value':1},{'label':'2025','value':2}]}],**changes}
         rows=[event(i) for i in range(1,6)]+[event(6,popularity_score=4.99),event(7,numeric_data=[])]
-        analyses=[{'event_id':i,'status':'ready','analysis':QUESTIONS} for i in range(1,8)]
+        analysis={**QUESTIONS,'charts':[{'chart_type':'line','source_urls':['https://example.org/data'],'points':[{'label':'2024','value':1},{'label':'2025','value':2}]}]}
+        analyses=[{'event_id':i,'status':'ready','analysis':analysis} for i in range(1,8)]
         ids=ready_event_ids(rows,analyses,NOW)
         self.assertEqual(ids[:3],[1,2,3]);self.assertEqual(ids[3:],[4,5])
         analyses[0]['analysis']={'binary_questions':[{}, {}, {}]}

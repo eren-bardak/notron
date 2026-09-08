@@ -94,6 +94,10 @@ The background and event explanation will be merged on one screen. They must
 not repeat each other, and their combined reading time should stay short.
 
 Chart selection rules:
+- Include at least one chronological chart. Every chronological chart must
+  retain a verified observed previous-calendar-year point from numeric_series.
+  Copy its label, value, group and source URL exactly, keeping the prior-year
+  baseline visible. Never substitute a source publication date or a forecast.
 - lollipop: when every label has one Filtresiz and one Filtreli value.
   Keep labels ordered from the smallest Filtresiz value to the largest.
   State the general direction and name any points moving against it as
@@ -136,6 +140,8 @@ Copy every key metric exactly from metric_candidates. Do not introduce a new
 number in the analysis. Use data limitations to prevent false precision.
 Write neutral Turkish. Never describe correlation as causation.
 """
+    now = datetime.now(timezone.utc)
+    prompt += f"\nCurrent UTC date: {now.date().isoformat()}. Required observed baseline year: {now.year - 1}.\n"
 
     result = client.responses.parse(
         model=model,
