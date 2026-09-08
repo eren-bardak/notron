@@ -43,7 +43,7 @@ gözlem bulunması gerekir (2026'da 2025). Karşılaştırmalara ve tekil ölç�
 Gösterilen tüm değerler, etiketler, gruplar ve birimler araştırmadaki kaynakla
 eşleşmelidir. Yetersiz veya kaynakla eşleşmeyen veri `enough_data=false` (0),
 `is_visible=false`, `status=insufficient_data` olarak işaretlenir. Veri uydurulmaz.
-Mevcut geçerli sorular normal yenilemede korunur; yanıt kimlikleri değiştirilmez.
+Editoryal sürümü eski analizler de yeniden araştırılır. Yeni soru yeni yanıt kimliği alır; eski cevaplar silinmez veya yeni soruya taşınmaz.
 Yalnızca kayıtlı veriyi kontrol etmek için:
 
 ```bash
@@ -79,3 +79,8 @@ Zaman serisi seçilirse soru, gözlenen eğilimin sürmesi halinde bu habere kon
 olan karar, proje veya kişiler için ne anlama gelebileceğine odaklanır. Gelecek
 kesinmiş gibi sunulmaz; grafiğe uydurma tahmin değeri eklenmez. Veri yetersizliği
 geçerli bir yanıt seçeneğidir.
+
+Bu sürüm mevcut haberleri de yeni editoryal kontrolden geçirir. Sadece aynı
+kurumla ilişkili genel bir istatistik yeterli değildir. Haber–veri bağı, soru–veri
+uyumu ve sorunun basit grafik okuma sınavı olmaması ayrı ayrı incelenir.
+Kontrolü geçmeyen dosya yayımlanmaz; yeni soru için eski yanıtlar kullanılmaz.

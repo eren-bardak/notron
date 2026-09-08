@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from openai import OpenAI
 
 from .models import ResearchBundle
+from editorial_quality import EDITORIAL_REVISION
 
 
 def load_event(db, event_id: int) -> dict:
@@ -58,6 +59,13 @@ Return:
 - Then collect one to six relevant verified metric candidates and one to four
   numeric evidence items ONLY when they help assess that reader_question.
   A single well-sourced measurement is enough; do not fill numerical quotas.
+- Reject evidence that only shares an institution, person or broad topic with
+  this event. A municipality's general budget does NOT explain a deputy-mayor
+  election. Use that election's candidates, votes, participating groups, majority
+  rules and directly relevant institutional context. Do not replace missing
+  relevant data with a conveniently available generic annual statistic.
+- The eventual question must allow a reasoned interpretation of this event,
+  not test whether the reader can spot which number is higher or repeat a fact.
 
 Background rules:
 - Center the research on the concrete development, its context, benefits,
@@ -123,9 +131,20 @@ Write neutral Turkish. Never invent a number or causal relationship.
     now = datetime.now(timezone.utc)
     prompt += f"\nCurrent UTC date: {now.date().isoformat()}. Baseline year ONLY for chronological evidence: {now.year - 1}.\n"
 
+    # An editor can point a disputed story toward relevant public sources.
+    if event_id == 75 and "Üsküdar" in str(event_payload.get("event", {}).get("title", "")):
+        event_payload = {**event_payload, "editorial_brief": {
+            "occurrence": "8 September 2026 repeated deputy-mayor election in Üsküdar",
+            "focus": "Voting balance and implications for future municipal decisions. Do not use the general municipal budget. Check latest final results; do not confuse participating groups with total council seats or assume secret votes identify individual voters.",
+            "source_leads": [
+                "https://www.dha.com.tr/gundem/uskudar-belediyesi-baskan-vekili-dundar-ziya-gultekin-oldu-2941169",
+                "https://medyascope.tv/2026/09/08/uskudar-belediyesi-akpye-gecti/",
+                "https://www.istanbul.gov.tr/basin-aciklamasi-2026-49"
+            ]
+        }}
     result = client.responses.parse(
         model=model,
-        reasoning={"effort": "low"},
+        reasoning={"effort": "medium"},
         tools=[{"type": "web_search"}],
         tool_choice="required",
         input=[
@@ -144,4 +163,5 @@ Write neutral Turkish. Never invent a number or causal relationship.
 
     if result is None:
         raise RuntimeError("The research response could not be parsed")
+    result.editorial_revision = EDITORIAL_REVISION
     return result

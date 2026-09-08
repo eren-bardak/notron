@@ -18,7 +18,7 @@ def series(labels=("2024", "2025")):
 
 
 def analysis(data):
-    return {"binary_questions": [{"question": "A?"}, {"question": "B?"}, {"question": "C?", "question_type": "metric", "data_anchor": "2025: 1"}],
+    return {"editorial_review": {"revision": 1, "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True}, "binary_questions": [{"question": "A?"}, {"question": "B?"}, {"question": "C?", "question_type": "metric", "data_anchor": "2025: 1"}],
             "charts": [{"chart_type": "line", "source_urls": [data["source_url"]],
                         "points": copy.deepcopy(data["points"])}]}
 

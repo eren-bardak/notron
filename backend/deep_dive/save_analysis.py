@@ -1,5 +1,6 @@
 from .models import EventAnalysis, ResearchBundle
 from numeric_data_quality import valid_analysis_timeline
+from editorial_quality import current_editorial
 
 
 def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis) -> None:
@@ -11,7 +12,7 @@ def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis) -> None
 
     research_data = research.model_dump(mode="json")
     analysis_data = analysis.model_dump(mode="json")
-    enough_data = valid_analysis_timeline(analysis_data, numeric_data)
+    enough_data = valid_analysis_timeline(analysis_data, numeric_data) and current_editorial(analysis_data)
     previous = db.table("event_analyses").select("analysis").eq("event_id", analysis.event_id).limit(1).execute().data
     selected_image = (previous[0].get("analysis") or {}).get("image_selection") if previous else None
     if selected_image:

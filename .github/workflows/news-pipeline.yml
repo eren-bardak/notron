@@ -55,4 +55,22 @@ jobs:
       - name: 4 · Research and publish deep dives
         working-directory: backend
         timeout-minutes: 120
-        run: python generate_event_deep_dives.py
+        env:
+          EDITORIAL_PRIORITY: ${{ contains(github.event.head_commit.message, '[repair-event-75]') && '75' || '' }}
+        run: |
+          if [ -n "$EDITORIAL_PRIORITY" ]; then
+            python generate_event_deep_dives.py --prioritize-event "$EDITORIAL_PRIORITY"
+          else
+            python generate_event_deep_dives.py
+          fi
+      - name: Export public evidence and questions for review
+        if: always()
+        working-directory: backend
+        run: python export_editorial_review.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: editorial-review
+          path: backend/editorial-review.json
+          if-no-files-found: warn
+          retention-days: 7

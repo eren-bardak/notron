@@ -37,7 +37,7 @@ def research():
 class SingleQuestionTests(unittest.TestCase):
     def test_generation_schema_has_one_metric_and_no_additional_prompts(self):
         question = BinaryQuestion.model_validate(QUESTION)
-        self.assertEqual(ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True).binary_questions, [question])
+        self.assertEqual(ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True).binary_questions, [question])
         for questions in ([], [question, question]):
             with self.assertRaises(ValidationError):
                 ReviewedQuestions(binary_questions=questions)
@@ -53,7 +53,7 @@ class SingleQuestionTests(unittest.TestCase):
     def test_review_accepts_one_data_question_and_rejects_empty_or_duplicate_answers(self):
         question = BinaryQuestion.model_validate(QUESTION)
         client = Mock()
-        reviewed = ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True)
+        reviewed = ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True)
         client.responses.parse.return_value = SimpleNamespace(output_parsed=reviewed)
         self.assertEqual(review_questions(client, "test-model", research(), [question]), [question])
         with self.assertRaises(ValidationError):
@@ -64,7 +64,7 @@ class SingleQuestionTests(unittest.TestCase):
         ):
             bad = BinaryQuestion.model_validate({**QUESTION, **changes})
             client.responses.parse.return_value = SimpleNamespace(
-                output_parsed=ReviewedQuestions(binary_questions=[bad], event_specific=True, matches_displayed_evidence=True))
+                output_parsed=ReviewedQuestions(binary_questions=[bad], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True))
             with self.assertRaises(ValueError):
                 review_questions(client, "test-model", research(), [question])
 
@@ -73,14 +73,14 @@ class SingleQuestionTests(unittest.TestCase):
         client = Mock()
         chart = {"chart_type": "metric", "title": "Proje kapasitesi", "unit": "kişi", "points": [{"label": "Kapasite", "value": 120}]}
         client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(
-            binary_questions=[question], event_specific=True, matches_displayed_evidence=True))
+            binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True))
         review_questions(client, "test-model", research(), [question], [chart])
         prompt = client.responses.parse.call_args.kwargs["input"]
         import json
         self.assertEqual(json.loads(prompt[-1]["content"])["first_chart"], [chart])
-        for flags in ({"event_specific": False, "matches_displayed_evidence": True},
-                      {"event_specific": True, "matches_displayed_evidence": False}):
-            client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(binary_questions=[question], **flags))
+        for flags in ({"event_specific": False}, {"matches_displayed_evidence": False},
+                      {"evidence_relevant": False}, {"not_factual_recall": False}):
+            client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(binary_questions=[question], **({"event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True} | flags)))
             with self.assertRaises(ValueError):
                 review_questions(client, "test-model", research(), [question], [chart])
 
@@ -137,7 +137,7 @@ class SingleQuestionTests(unittest.TestCase):
                          "is_visible": True, "numeric_data": numeric, "source_count": 2,
                          "popularity_score": 100, "popularity_updated_at": now.isoformat()}
                 analysis = {"schema_version": 2, "question_revision": revision,
-                            "binary_questions": copy.deepcopy(questions), "charts": [chart]}
+                            "binary_questions": copy.deepcopy(questions), "charts": [chart], "editorial_review": {"revision": 1, "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True}}
                 rows = [{"event_id": 1, "status": "ready", "analysis": analysis}]
                 original = copy.deepcopy(rows)
                 db = Mock()
@@ -167,6 +167,21 @@ class SingleQuestionTests(unittest.TestCase):
                     for call in (do_research, analyze, review, save):
                         call.assert_not_called()
                 self.assertEqual(rows, original)
+                # A formerly ready file must be re-researched after a policy upgrade.
+                analysis["editorial_review"] = None
+                with patch.dict(os.environ, {"SUPABASE_URL": "https://example.invalid", "SUPABASE_KEY": "test", "OPENAI_API_KEY": "test"}), \
+                     patch.object(sys, "argv", ["generate_event_deep_dives.py"]), \
+                     patch.object(pipeline, "create_client", return_value=db), \
+                     patch.object(pipeline, "OpenAI"), \
+                     patch.object(pipeline, "refresh_cover_questions"), \
+                     patch.object(pipeline, "refresh_event_covers"), \
+                     patch.object(pipeline, "publish_ready_events"), \
+                     patch.object(pipeline, "load_event", return_value={"event": event, "articles": []}), \
+                     patch.object(pipeline, "research_event", side_effect=RuntimeError("stop before network")) as fresh:
+                    with self.assertRaisesRegex(RuntimeError, "1 deep dives failed"):
+                        pipeline.main()
+                    fresh.assert_called_once()
+
 
 
 if __name__ == "__main__":

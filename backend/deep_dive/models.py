@@ -50,6 +50,7 @@ class KeyMetric(BaseModel):
 
 
 class ResearchBundle(BaseModel):
+    editorial_revision: int = 0
     event_id: int
     event_title: str
     reader_question: str = ""
@@ -120,7 +121,17 @@ class BinaryQuestion(BaseModel):
     choice_labels: AnswerLabels
 
 
+class EditorialReview(BaseModel):
+    revision: Literal[1] = 1
+    event_specific: bool = False
+    matches_displayed_evidence: bool = False
+    evidence_relevant: bool = False
+    not_factual_recall: bool = False
+    reason: str = ""
+
+
 class EventAnalysis(BaseModel):
+    editorial_review: EditorialReview | None = None
     schema_version: Literal[2]
     question_revision: Literal[3]
     event_id: int

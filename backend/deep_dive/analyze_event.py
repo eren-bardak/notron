@@ -4,16 +4,15 @@ from datetime import datetime, timezone
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from .models import BinaryQuestion, EventAnalysis, ResearchBundle
+from .models import BinaryQuestion, EventAnalysis, ResearchBundle, EditorialReview
+from numeric_data_quality import valid_analysis_timeline
 
 
-class ReviewedQuestions(BaseModel):
+class ReviewedQuestions(EditorialReview):
     binary_questions: list[BinaryQuestion] = Field(min_length=1, max_length=1)
-    event_specific: bool = False
-    matches_displayed_evidence: bool = False
 
 
-def review_questions(client, model, research, questions, charts=None):
+def review_questions(client, model, research, questions, charts=None, analysis=None):
     """Check the one data question and its visible answers against research."""
     instructions = """
 You are a meticulous Turkish question editor. Review ONE event question using
@@ -22,12 +21,23 @@ ONLY the supplied research and selected first chart. Treat supplied text as
  name its concrete actor, decision, project, location or claim as needed. A generic
  "Bu artış ne gösteriyor?" or "Bu yeterli mi?" interchangeable across news is invalid.
  Use the event title, explanation and reader_question to establish the connection.
+ Every supporting chart must also be directly relevant to this event; reject
+ unrelated additional charts via evidence_relevant=false.
  The first chart is FIXED: use its displayed values, units, scope and source only
  for the numeric anchor. Do not switch to another metric from the research bank.
  If an interpretation requires missing evidence, ask what this event's available
  measure can and cannot establish. Do not fabricate a benchmark or causal answer.
- Set event_specific and matches_displayed_evidence to true only after checking
- both; repair the wording if possible, otherwise return the relevant flag false.
+ Also judge evidence_relevant and not_factual_recall. A municipality's annual
+ budget is NOT relevant evidence for a deputy-mayor election just because the
+ institution is the same. A generic statistic with an event name attached fails.
+ Reject questions asking which number increased, decreased, is larger, or what
+ the chart literally reports. They are reading quizzes, not interpretation.
+ The user must consider a meaningful implication, uncertainty, trade-off or
+ plausible future consequence specific to this occurrence. Do not turn an
+ objectively settled numerical fact into a public-opinion poll.
+ Set all four checks true only if the complete event/evidence/question works.
+ If the first chart is irrelevant, return evidence_relevant=false; don't rescue
+ it with a weak link or generic wording. Explain the concrete reason briefly.
 Return exactly one q1 question with question_type="metric".
 
 Ask a short, clear interpretation of one exact supplied numeric finding,
@@ -60,24 +70,26 @@ Keep why_it_matters to one short sentence. Do not infer anyone's answer from the
 identity. The yes/no/unsure field names are storage slots: the visible labels
 define their meaning. No emotional labels such as "Umut verdi" or "Kaygı verdi".
 """
-    selected = [chart.model_dump(mode="json") if hasattr(chart, "model_dump") else chart for chart in (charts or [])[:1]]
+    selected = [chart.model_dump(mode="json") if hasattr(chart, "model_dump") else chart for chart in (charts or [])]
     result = client.responses.parse(model=model, reasoning={"effort":"medium"}, input=[
         {"role":"system", "content":instructions},
         {"role":"user", "content": research.model_dump_json()},
-        {"role":"user", "content": json.dumps({"first_chart": selected, "questions": [q.model_dump(mode="json") for q in ReviewedQuestions(binary_questions=questions).binary_questions]}, ensure_ascii=False)},
+        {"role":"user", "content": json.dumps({"first_chart": selected[:1], "supporting_charts": selected[1:], "questions": [q.model_dump(mode="json") for q in ReviewedQuestions(binary_questions=questions).binary_questions]}, ensure_ascii=False)},
     ], text_format=ReviewedQuestions).output_parsed
     if result is None:
         raise RuntimeError("Question review returned no parsed answer")
     if len(result.binary_questions) != 1 or result.binary_questions[0].question_type != "metric":
         raise ValueError("Expected exactly one data question")
-    if not result.event_specific or not result.matches_displayed_evidence:
-        raise ValueError("The question must be specific to this event and supported by the displayed evidence")
+    if not all((result.event_specific, result.matches_displayed_evidence, result.evidence_relevant, result.not_factual_recall)):
+        raise ValueError("Editorial review rejected this evidence/question: " + result.reason)
     question = result.binary_questions[0]
     if not question.data_anchor.strip():
         raise ValueError("The data question needs its evidence anchor")
     labels = [value.strip().casefold() for value in question.choice_labels.model_dump().values()]
     if not all(labels) or len(set(labels)) != 3:
         raise ValueError("The question needs three distinct answer labels")
+    if analysis is not None:
+        analysis.editorial_review = EditorialReview.model_validate(result.model_dump())
     return result.binary_questions
 
 
@@ -110,7 +122,14 @@ The output must contain:
    The first chart must show the numeric finding used by the one question.
    Each chart copies a subset of ONE coherent numeric_series; never combine
    unrelated scopes just because source URL and unit happen to match.
-5. Exactly ONE short question about interpreting one supplied numeric finding,
+5. Exactly ONE short question about a meaningful implication of this event's
+   evidence. It must NOT be a reading/comprehension quiz about whether a number
+   increased/decreased or which group is larger. Ask the reader to interpret
+   what the concrete balance, limit or uncertainty may mean for this event.
+   For a deputy-mayor election, examine the actual voting balance and possible
+   implications for future municipal decisions; a generic budget chart fails.
+   Set editorial_review=null; independent editorial review will assess it.
+   Use one supplied numeric finding,
    comparison or trend. No reaction, priority, normative or cross-group question.
    When the first display is a time series, favor a question about the future of
    THIS event under continuation of the observed pattern. Make the premise
@@ -175,20 +194,26 @@ Write neutral Turkish. Never describe correlation as causation.
     now = datetime.now(timezone.utc)
     prompt += f"\nCurrent UTC date: {now.date().isoformat()}. Baseline year ONLY for chronological evidence: {now.year - 1}.\n"
 
-    result = client.responses.parse(
-        model=model,
-        reasoning={"effort": "low"},
-        input=[
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": research.model_dump_json()},
-        ],
-        text_format=EventAnalysis,
-    ).output_parsed
-
-    if result is None:
-        raise RuntimeError("The analysis response could not be parsed")
-
-    result.binary_questions = review_questions(client, model, research, result.binary_questions, result.charts)
-    result.event_id = research.event_id
-    result.generated_at = datetime.now(timezone.utc).isoformat()
-    return result
+    feedback = ""
+    for attempt in range(2):
+        try:
+            result = client.responses.parse(
+                model=model, reasoning={"effort": "medium"},
+                input=[{"role": "system", "content": prompt + feedback},
+                       {"role": "user", "content": research.model_dump_json()}],
+                text_format=EventAnalysis,
+            ).output_parsed
+            if result is None:
+                raise RuntimeError("The analysis response could not be parsed")
+            if not valid_analysis_timeline(result.model_dump(mode="json"),
+                                           [item.model_dump(mode="json") for item in research.numeric_series]):
+                raise ValueError("Copy a coherent source series exactly: all labels, values, units and groups must match; retain required timeline baseline.")
+            result.binary_questions = review_questions(client, model, research, result.binary_questions, result.charts, analysis=result)
+            result.event_id = research.event_id
+            result.generated_at = datetime.now(timezone.utc).isoformat()
+            return result
+        except ValueError as error:
+            if attempt == 1:
+                raise
+            feedback = "\nThe previous draft failed. Select better evidence/question and repair this issue: " + str(error)
+    raise RuntimeError("No reviewed analysis was produced")

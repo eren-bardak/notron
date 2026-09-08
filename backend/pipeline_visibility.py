@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 from numeric_data_quality import valid_analysis_timeline, valid_numeric_data
 from popularity import POLICY, current_score, parse_time, read_all
+from editorial_quality import current_editorial
 
 
 def valid_questions(analysis):
@@ -22,7 +23,7 @@ def ready_event_ids(events, analyses, now=None, limit=None):
     now = now or datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=POLICY['event_window_hours'])
     ready = {int(row['event_id']): row.get('analysis') for row in analyses if row.get('status') == 'ready'
-             and valid_questions(row.get('analysis'))}
+             and current_editorial(row.get('analysis')) and valid_questions(row.get('analysis'))}
     eligible = []
     for event in events:
         created = parse_time(event.get('created_at'))

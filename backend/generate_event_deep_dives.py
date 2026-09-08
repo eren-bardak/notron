@@ -16,6 +16,7 @@ from event_images import refresh_event_covers
 from numeric_data_quality import valid_analysis_timeline
 from pipeline_visibility import enforce_previous_year_gate, publish_ready_events, valid_questions, valid_numeric_data
 from popularity import POLICY, current_score
+from editorial_quality import EDITORIAL_REVISION, current_editorial
 
 
 load_dotenv()
@@ -37,6 +38,7 @@ def main() -> None:
         "--validate-only", action="store_true",
         help="Apply the sourced event-evidence gate to saved events without research or OpenAI calls.",
     )
+    parser.add_argument("--prioritize-event", type=int, help="Refresh this current event first, without changing its publication rank.")
     args = parser.parse_args()
 
     db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
@@ -66,9 +68,10 @@ def main() -> None:
     print(f"Revalidated previous_year={datetime.now(timezone.utc).year - 1} | rejected={len(rejected)}", flush=True)
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     stored_by_id = {int(row["event_id"]): row for row in stored}
-    # Existing ready metric ballots keep their wording, full array and hashed IDs.
-    ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") in (2, 3)}
+    # Reuse only analyses reviewed under the current editorial policy. Old ballot rows remain stored.
+    ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and current_editorial(row.get("analysis")) and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") in (2, 3)}
     pending = eligible if args.force else [event for event in eligible if not event.get("enough_data") or not valid_numeric_data(event.get("numeric_data")) or int(event["id"]) not in ready]
+    pending.sort(key=lambda event: (int(event["id"]) != args.prioritize_event, not event.get("is_visible", False)))
     failures = 0
     # Update existing covers first; missing-data research may take much longer.
     refresh_cover_questions(db, client, model, [event_id for event_id in ids if event_id in ready], max_reviews=MAX_EVENTS_PER_RUN)
@@ -79,7 +82,7 @@ def main() -> None:
 
         try:
             cached = stored_by_id.get(event_id, {})
-            if not args.force and cached.get("research") and valid_numeric_data(event.get("numeric_data")):
+            if not args.force and (cached.get("research") or {}).get("editorial_revision") == EDITORIAL_REVISION and valid_numeric_data(event.get("numeric_data")):
                 try:
                     research = ResearchBundle.model_validate(cached["research"])
                     print(f"Refresh questions from saved research | event={event_id}")
@@ -116,12 +119,12 @@ def main() -> None:
                 continue
 
             old_analysis = cached.get("analysis") or {}
-            if (not args.force and old_analysis.get("schema_version") == 2
+            if (not args.force and current_editorial(old_analysis) and old_analysis.get("schema_version") == 2
                     and old_analysis.get("question_revision") == 3 and valid_questions(old_analysis)
                     and valid_analysis_timeline(old_analysis, [series.model_dump(mode="json") for series in research.numeric_series])):
                 # A wording repair needs no second data-story generation or web search.
                 analysis = EventAnalysis.model_validate(old_analysis)
-                analysis.binary_questions = review_questions(client, model, research, analysis.binary_questions, analysis.charts)
+                analysis.binary_questions = review_questions(client, model, research, analysis.binary_questions, analysis.charts, analysis=analysis)
                 analysis.generated_at = datetime.now(timezone.utc).isoformat()
             else:
                 analysis = analyze_event(client, model, research)
@@ -144,7 +147,9 @@ def main() -> None:
     refresh_cover_questions(db, client, model, [event_id for event_id in ids if event_id not in ready], max_reviews=MAX_EVENTS_PER_RUN)
     # Photo review also covers already-ready events and does not alter question IDs.
     refresh_event_covers(db, client, model, ids, max_reviews=MAX_EVENTS_PER_RUN)
-    publish_ready_events(db)
+    published = publish_ready_events(db)
+    if args.prioritize_event is not None and args.prioritize_event not in published:
+        raise RuntimeError(f"Requested event {args.prioritize_event} did not finish with a current, publishable editorial review; inspect its evidence and eligibility.")
     try:
         db.table("event_comments").select("user_id").limit(0).execute()
         print("Family preview readiness | Writer account column ready")
