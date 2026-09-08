@@ -56,7 +56,8 @@ class ScoreTests(unittest.TestCase):
     def test_real_unique_participation_only_and_edits_keep_original_age(self):
         base={'event_id':1,'created_at':(NOW-timedelta(hours=6)).isoformat(),'user_id':'u1','status':'active','text':'A thought'}
         micro=[dict(base,id=1),dict(base,id=2,created_at=NOW.isoformat()),dict(base,id=3,user_id='u2',status='hidden')]
-        comments=[dict(base,id=1,author_role='writer'),dict(base,id=2,author_role='reader',user_id='u3')]
+        comments=[dict(base,id=1,author_role='writer'),dict(base,id=2,author_role='reader',user_id='u3'),
+                  dict(base,id=3,author_role='writer',user_id=None)]
         qid=next(iter(question_ids(QUESTIONS)))
         answers=[dict(base,id=1,binary_answers={qid:'yes'},updated_at=NOW.isoformat()),dict(base,id=2,user_id='u2',binary_answers={'fake':'yes'})]
         result=score([],micro=micro,comments=comments,answers=answers)

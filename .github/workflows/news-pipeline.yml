@@ -35,5 +35,21 @@ jobs:
         run: python backend/run_pipeline.py --check
       - name: Install dependencies
         run: python -m pip install -r backend/requirements.txt
-      - name: Refresh news, ranking and analysis
-        run: python backend/run_pipeline.py
+      - name: Verify scoring and publication rules
+        run: python -m unittest discover -s tests -p 'test_*.py'
+      - name: 1 · Fetch RSS news
+        working-directory: backend
+        timeout-minutes: 45
+        run: python rss_fetcher.py
+      - name: 2 · Cluster and enrich events
+        working-directory: backend
+        timeout-minutes: 30
+        run: python clustering_news_enriched.py
+      - name: 3 · Update popularity
+        working-directory: backend
+        timeout-minutes: 15
+        run: python update_event_popularity_v02.py
+      - name: 4 · Research and publish deep dives
+        working-directory: backend
+        timeout-minutes: 120
+        run: python generate_event_deep_dives.py

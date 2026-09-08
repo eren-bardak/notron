@@ -24,7 +24,12 @@ def main():
     news = read_all(db, 'news', 'id,source,title,url,published_at', 'id', news_ids)
     sources = read_all(db, 'sources', 'name,source_group', order_by='name')
     micro = read_all(db, 'event_micro_comments', 'id,event_id,user_id,text,status,created_at', 'event_id', ids)
-    comments = read_all(db, 'event_comments', 'id,event_id,user_id,text,status,author_role,created_at', 'event_id', ids)
+    # Older comment tables lack user_id. Read their existing columns without
+    # guessing an author; unattributed legacy rows earn no Writer points.
+    comments = read_all(db, 'event_comments', '*', 'event_id', ids)
+    legacy_count = sum(1 for row in comments if not row.get('user_id'))
+    if legacy_count:
+        print(f'Legacy Writer comments without account identity: {legacy_count}; no ranking credit.')
     answers = read_all(db, 'event_answers', 'id,event_id,user_id,binary_answers,created_at', 'event_id', ids)
     analyses = read_all(db, 'event_analyses', 'id,event_id,analysis', 'event_id', ids)
     news_by_id = {int(r['id']): r for r in news}

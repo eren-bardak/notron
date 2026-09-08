@@ -20,6 +20,12 @@ All answer directions receive equal points; skipping does not score. Answering
 three questions still counts as one event ballot. Micro-comment protection
 reactions are not event ballots and do not add ranking points.
 
+Legacy Writer comments with no account identity earn no ranking points. The
+scorer can read older comment tables without stopping the news pipeline. Apply
+`backend/writer_identity_migration.sql` to an older database before accepting new
+Writer submissions; it adds the missing nullable account reference and preserves
+old rows without guessing their authors.
+
 A single-group event can qualify without P. Unknown media labels receive no
 group classification. Additional articles receive R; they never re-award P.
 This measures breadth of coverage, not whether reporting is true or impartial.
