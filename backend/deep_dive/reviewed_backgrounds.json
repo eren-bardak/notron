@@ -1,0 +1,262 @@
+{
+  "75": {
+    "signature": "574147f1fb7bc57122de0cc3dff9bcf650dbe86ba559183617941a5ab6486cfe",
+    "context": {
+      "tension": "Mahkemenin sayımın usulüne ilişkin tespitine karşı belediye, oyların kazananı değiştirmeyeceğini savunuyor.",
+      "evidence": [
+        {
+          "url": "https://www.memurlar.net/haber/1176334/uskudar-belediyesi-baskan-vekilligi-seciminde-yurutmeyi-durdurma-karari.html",
+          "title": "Mahkemenin aktarılan gerekçesi",
+          "finding": "İsimleri okunabilen beş oyun somut gerekçesiz geçersiz sayılması ve sayımın tarafsızlığı; yürütmeyi durdurma.",
+          "publisher": "AA / Memurlar.net",
+          "published_at": "2026-08-25",
+          "evidence_type": "historical"
+        },
+        {
+          "url": "https://www.cumhuriyet.com.tr/turkiye/mahkeme-yurutmeyi-durdurma-karari-vermisti-uskudar-belediyesi-nden-secim-aciklamasi-2532756",
+          "title": "Belediyenin karşı açıklaması",
+          "finding": "Belediye, tartışmalı oylar geçerli sayılsa da kazananın değişmeyeceğini savunuyor; bu, taraf açıklamasıdır.",
+          "publisher": "ANKA / Cumhuriyet",
+          "published_at": "2026-08-27",
+          "evidence_type": "historical"
+        },
+        {
+          "url": "https://www.sonmuhur.com/uskudar-belediyesinde-vekil-secimi-5-eylulde-tekrarlanacak",
+          "title": "Yargı kararının ardından seçim takvimi",
+          "finding": "Valilik açıklamasının aktarımı: yürütmeyi durdurmaya itiraz 2 Eylül’de reddedildi.",
+          "publisher": "Son Mühür / Valilik açıklaması",
+          "published_at": "2026-09-02",
+          "evidence_type": "historical"
+        },
+        {
+          "url": "https://medyascope.tv/2026/09/03/uskudar-belediye-meclisinde-chpli-4-uye-akpye-gecti/",
+          "title": "Dört üyenin parti değişikliği",
+          "finding": "Dört CHP’li belediye meclis üyesi AK Parti’ye katıldı.",
+          "publisher": "Medyascope",
+          "published_at": "2026-09-03",
+          "evidence_type": "historical"
+        },
+        {
+          "url": "https://www.aa.com.tr/tr/gundem/uskudar-belediye-baskan-vekilligine-ak-partili-dundar-ziya-gultekin-secildi-/4050704",
+          "title": "Yenilenen seçimin sonucu",
+          "finding": "5 Eylül toplantısında yeterli katılım olmadı; 8 Eylül dördüncü tur sonucu 23–19.",
+          "publisher": "Anadolu Ajansı",
+          "published_at": "2026-09-08",
+          "evidence_type": "historical"
+        }
+      ],
+      "narration": "5 Ağustos’ta Sibel Tan Çetinkaya 22 oyla başkanvekili seçilmişti. AA’nın aktardığı mahkeme gerekçesine göre üçüncü turda isimleri açıkça okunabilen beş oy, somut gerekçe gösterilmeden geçersiz sayıldı; İstanbul 2. İdare Mahkemesi sayımın tarafsız ve şeffaf yürütülmediği sonucuna vararak meclis kararının yürütmesini durdurdu. Belediye ise bu oylar geçerli sayılsa da kazananın değişmeyeceğini savundu. İtiraz 2 Eylül’de reddedildi; 5 Eylül toplantısı yeterli katılım olmayınca ertelendi. Bu süreçte dört CHP’li üye AK Parti’ye geçti. Açıklanan karar, seçimin esastan iptali değil yürütmeyi durdurmaydı.",
+      "explanation": "Mahkeme, okunabilen beş oyun gerekçesiz geçersiz sayılması ve sayım usulü nedeniyle meclis kararının yürütmesini durdurdu.",
+      "uncertainty": "Doğrudan mahkeme belgesi bulunmadı; gerekçe AA haberinden aktarılıyor. Sonucun değişmeyeceği belediyenin savunmasıdır.",
+      "key_question": "Önceki seçim neden yeniden yapıldı?"
+    }
+  },
+  "76": {
+    "signature": "a9f22e95e3d3f93af0b0c5292f0bb425dc7e9d8104173527fd3b1a2e61ceb1b8",
+    "context": {
+      "tension": "",
+      "evidence": [
+        {
+          "url": "https://www.aa.com.tr/tr/gundem/adana-ve-antalyadaki-orman-yanginlarina-mudahale-ediliyor/4049198",
+          "title": "Adana ve Antalya’daki orman yangınlarına müdahale ediliyor",
+          "finding": "Valilik: çıkış nedeni henüz belirlenmedi; yangın rüzgârla geniş alana yayıldı ve Aksu’dan Kepez’e sıçradı.",
+          "publisher": "AA",
+          "published_at": "2026-09-07",
+          "evidence_type": "current"
+        },
+        {
+          "url": "https://www.cumhuriyet.com.tr/turkiye/antalya-daki-orman-yangini-2-gununde-2-bin-haneye-elektrik-verilemiyor-alevler-evlerin-sinirinda-2535928",
+          "title": "Antalya’daki orman yangını 2. gününde",
+          "finding": "30 km/s rüzgâr söndürmeyi güçleştiriyor; sabah hava müdahalesi yeniden başladı. Valilik 254 evden 720 kişinin tahliyesini ve 2.097 abonenin kesintiden etkilenmesini bildirdi.",
+          "publisher": "Cumhuriyet / DHA",
+          "published_at": "2026-09-08",
+          "evidence_type": "current"
+        }
+      ],
+      "narration": "Aksu’nun Karaöz Mahallesi’nde 7 Eylül öğleden sonra başlayan yangın, sık çam ağaçlarının bulunduğu alanda rüzgârla hızla yayılarak yerleşimleri tehdit etti. Cumhuriyet’in DHA haberine göre saatte 30 kilometreye ulaşan rüzgâr söndürmeyi güçleştirdi; gece karadan sürdürülen müdahaleye 8 Eylül sabahı uçak ve helikopterler yeniden katıldı. Valiliğin aktarılan açıklamasında 254 evden 720 kişinin tahliye edildiği ve elektrik kesintisinden 2.097 abonenin etkilendiği belirtildi. Yangının çıkış nedeni ise AA’nın haberinde henüz belirlenmemiş olarak aktarılıyor.",
+      "explanation": "Rüzgâr yangının yayılmasını hızlandırıp söndürmeyi güçleştirdi; gece boyunca süren kara müdahalesine sabah hava araçları yeniden katıldı.",
+      "uncertainty": "Yangını başlatan neden henüz açıklanmadı; rüzgâr yangının yayılmasını açıklıyor.",
+      "key_question": "Yangına müdahale neden ikinci güne sarktı?"
+    }
+  },
+  "77": {
+    "signature": "18694e2b47afee9d06eb63a6f47bf4924d213e88c62390cc13e96b80b5a3f725",
+    "context": {
+      "tension": "Aynı kararda yaş nedeniyle indirim uygulanırken pişmanlığa bağlı ek indirim uygulanmadı.",
+      "evidence": [
+        {
+          "url": "https://www.aa.com.tr/tr/gundem/-atlas-caglayan-cinayeti-davasinda-karar/4050893",
+          "title": "Atlas Çağlayan cinayeti davasında karar",
+          "finding": "AA, mahkemenin ATK değerlendirmesini dikkate aldığını, yaş küçüklüğü indirimiyle üç suçtan toplam 18 yıl 10 ay 15 gün ceza verdiğini ve pişmanlık sözlerini ek indirim nedeni saymadığını aktarıyor.",
+          "publisher": "AA",
+          "published_at": "",
+          "evidence_type": "current"
+        }
+      ],
+      "narration": "AA’nın aktardığına göre mahkeme, olay sırasında 14 yaşında olan sanığın fiilin anlamını algılama ve davranışlarını yönlendirme yeteneğine ilişkin ATK değerlendirmesini dikkate alarak mahkûmiyet kararı verdi. Yaş küçüklüğü indirimi uygulanan sanığa üç suçtan toplam 18 yıl 10 ay 15 gün hapis cezası verildi. Mahkeme, sanığın pişmanlık sözlerini ayrıca indirim nedeni saymadı.",
+      "explanation": "Mahkeme yaş küçüklüğü indirimini uyguladı; pişmanlık sözlerini ayrıca indirim nedeni saymadı.",
+      "uncertainty": "Gerekçeli kararın tamamı ve olası istinaf sürecinin sonucu burada doğrulanmadı.",
+      "key_question": "Yaş küçüklüğü indirimi ile pişmanlık indirimi aynı şey mi?"
+    }
+  },
+  "81": {
+    "signature": "efca90860ce3f2385550b79750bc9df9ae7ee6eeacc0f788320199e6e66fd005",
+    "context": {
+      "tension": "Şüpheli sayısı ile el konulan varlık değeri farklı dosya kapsamlarını anlatıyor; mahkûmiyet veya kesinleşmiş suç geliri toplamı değiller.",
+      "evidence": [
+        {
+          "url": "https://basin.adalet.gov.tr/adalet-bakani-akin-gurlek-devletimiz-sucun-da-haksiz-kazancin-da-pesindedir",
+          "title": "Adalet Bakanlığı açıklaması: 4 ilde organize suç operasyonu",
+          "finding": "Dört ayrı soruşturmada 137 şüpheli hakkında adli işlem başlatıldığı, dosyaların dolandırıcılık, suç gelirlerinin aklanması, yasa dışı bahis ve uluslararası uyuşturucu ticareti hatlarına uzandığı açıklandı; İzmir’de yaklaşık 1 milyar TL değerindeki taşınmaz, araç, tekne, şirket payı ve hesaplara el konuldu.",
+          "publisher": "Adalet Bakanlığı Basın",
+          "published_at": "2026-09-08",
+          "evidence_type": "official"
+        }
+      ],
+      "narration": "Adalet Bakanlığının açıklamasındaki 137 şüpheli, dört ayrı soruşturmanın toplamı; aynı olayda suçlu bulunan 137 kişiyi ifade etmiyor. Dosyalar dolandırıcılık, suç gelirlerinin aklanması, yasa dışı bahis ve uluslararası uyuşturucu ticareti iddialarını kapsıyor. İzmir soruşturmasında yaklaşık 1 milyar TL değerindeki taşınmaz, araç, tekne, şirket ortaklık payı ve banka hesaplarına el konulduğu açıklandı. Bu işlem malvarlığını soruşturma sırasında güvenceye alan bir tedbir; kesinleşmiş mahkûmiyet veya suçtan elde edildiği kesinleşen para toplamı değil.",
+      "explanation": "137 kişi dört soruşturmanın toplamı; 1 milyar TL ise İzmir dosyasında el konulan malvarlığının açıklanan değeri.",
+      "uncertainty": "Varlıkların suçla bağlantısının yargısal değerlendirmesi henüz sonuçlanmış değil.",
+      "key_question": "137 şüpheli ve 1 milyar TL aynı şeyi mi ölçüyor?"
+    }
+  },
+  "82": {
+    "signature": "2525966e72baf3869055337bed0df3553f70cf576aa81ee4da448c31c7846278",
+    "context": {
+      "tension": "",
+      "evidence": [
+        {
+          "url": "https://www.haberturk.com/gundem/son-dakika-haberleri-kari-koca-cift-alevlerin-arasinda-kaldi-3910964?utm_source=openai",
+          "title": "Habertürk haberi: Karı-koca çift alevlerin arasında kaldı",
+          "finding": "Yangın gece çıktı; Ağa Üykü ile Hayriye Üykü öldü, ev kullanılamaz hale geldi, soruşturma sürüyor ve çıkış nedeni henüz belirlenmedi.",
+          "publisher": "Habertürk",
+          "published_at": "2026-09-08",
+          "evidence_type": "current"
+        }
+      ],
+      "narration": "Karakoçan’ın Koçyiğitler köyü Ürünlü Mezrası’ndaki iki katlı evde gece çıkan yangında Ağa Üykü ile Hayriye Üykü hayatını kaybetti. Habertürk’ün aktardığına göre ev kullanılamaz hale geldi ve yangınla ilgili soruşturma başlatıldı. Yangının nasıl başladığı henüz açıklanmadı; elektrik, soba veya baca kaynaklı olduğuna ilişkin doğrulanmış bir tespit bulunmuyor.",
+      "explanation": "Can kaybı ve yangının yeri bildirildi; çıkış nedeni henüz açıklanmadı.",
+      "uncertainty": "Yangının çıkış nedeni soruşturuluyor; belirli bir arıza ya da ihmal doğrulanmadı.",
+      "key_question": "Yangın nasıl başladı; nedeni hakkında ne biliniyor?"
+    }
+  },
+  "84": {
+    "signature": "a37605e2010386ec35482f526b95c4f854db0211bb77f6b45e49c1ac2ee36ef3",
+    "context": {
+      "tension": "",
+      "evidence": [
+        {
+          "url": "https://www.dha.com.tr/gundem/avcilarda-asfalt-kamyonu-viraji-alamayarak-alt-gecit-yoluna-dustu-1-yarali-2941055",
+          "title": "Avcılar'da asfalt kamyonu virajı alamayarak alt geçit yoluna düştü, 1 yaralı",
+          "finding": "DHA, kamyonun D-100 Ambarlı yan yolda virajı alamayıp alt geçit yoluna düştüğünü, şoförün yaralandığını ve polisin inceleme başlattığını bildirdi.",
+          "publisher": "DHA",
+          "published_at": "2026-09-08",
+          "evidence_type": "current"
+        },
+        {
+          "url": "https://www.dha.com.tr/gundem/avcilarda-asfalt-kamyonu-viraji-alamayarak-alt-gecit-yoluna-dustu-1-yarali-2941055",
+          "title": "Avcılar'da asfalt kamyonu virajı alamayarak alt geçit yoluna düştü, 1 yaralı",
+          "finding": "Haber, kontrol kaybını anlatıyor; bunun nedenine ilişkin kesin teknik bulgu aktarmıyor.",
+          "publisher": "DHA",
+          "published_at": "2026-09-08",
+          "evidence_type": "current"
+        },
+        {
+          "url": "https://www.dha.com.tr/gundem/avcilarda-asfalt-kamyonu-viraji-alamayarak-alt-gecit-yoluna-dustu-1-yarali-2941055",
+          "title": "Avcılar'da asfalt kamyonu virajı alamayarak alt geçit yoluna düştü, 1 yaralı",
+          "finding": "Polis, ikinci bir kaza olmaması için yolu çift yönlü kapattı; kamyon vinçle kaldırılıp yol temizlenince trafik açıldı.",
+          "publisher": "DHA",
+          "published_at": "2026-09-08",
+          "evidence_type": "current"
+        }
+      ],
+      "narration": "DHA’nın aktardığına göre asfalt kamyonu D-100 Ambarlı yan yolda virajı alamayarak alt geçit yoluna düştü; sürücü yaralandı. Haberdeki “direksiyon hâkimiyetini kaybetti” ifadesi kazanın nasıl gerçekleştiğini anlatıyor; kontrol kaybına neyin yol açtığı henüz açıklanmış değil. Polis inceleme başlattı. İkinci bir kazayı önlemek için kapatılan yol, kamyon kaldırılıp temizlik yapıldıktan sonra yeniden açıldı.",
+      "explanation": "Virajda kontrol kaybı bildirildi; bunun teknik nedeni henüz belirlenmedi.",
+      "uncertainty": "Araç, yol veya sürücü kaynaklı bir nedenin kesinleştiği açıklanmadı.",
+      "key_question": "Kamyon neden kontrolden çıktı?"
+    }
+  },
+  "85": {
+    "signature": "70ac4d57f99ade73d70955175acf5e4439ca9d5987a8c87680b6dee6770990ba",
+    "context": {
+      "tension": "Tavan fiyat artışı açıklanması, bütün kantinlerde fiilî satış fiyatının aynı oranda arttığını göstermiyor.",
+      "evidence": [
+        {
+          "url": "https://www.karar.com/ekonomi-haberleri/okul-kantinlerinde-fiyatlar-belli-oldu-2070583",
+          "title": "Okul kantinlerinde fiyatlar belli oldu",
+          "finding": "İstanbul Kantinciler Odası’nın yeni eğitim yılı öncesi tavan fiyat listesi yayımlandı; tost+ayran 130 TL, dört çeşit tabldot 285 TL olarak duyuruldu.",
+          "publisher": "Karar",
+          "published_at": "",
+          "evidence_type": "current"
+        },
+        {
+          "url": "https://merkezisgb.meb.gov.tr/meb_iys_dosyalar/2024_12/12152134_okulkantinfiyattarifesibilgilendirme20.10.223.pdf",
+          "title": "Okul Kantin Fiyat Tarifesi Bilgilendirme",
+          "finding": "MEB yazısı, meslek kuruluşunca belirlenen tavanların görünür yerde ilan edilmesini ve okul yönetimince tavan üstü satışa izin verilmemesini öngörüyor.",
+          "publisher": "Milli Eğitim Bakanlığı",
+          "published_at": "2023-10-20",
+          "evidence_type": "official"
+        }
+      ],
+      "narration": "İstanbul Kantinciler Odası yeni eğitim yılı öncesi okul kantinleri için tavan fiyat listesini yayımladı; Karar’a göre tost+ayran 130 TL, dört çeşit tabldot 285 TL oldu ve başkan Vahap Osmanoğlu bunu ortalama yüzde 6,8 artışla “enflasyonla mücadele” diye açıkladı. MEB’in 20.10.2023 tarihli yazısı ise bu tür meslek kuruluşu tavanlarının okulda görünür biçimde ilan edilmesini ve tavan üstü satışa izin verilmemesini öngörüyor. Bu yüzden açıklanan rakamlar son satış değil, yalnızca üst sınır; kantinlerin fiilen bunun altında mı satış yaptığı ise haberden bilinmiyor.",
+      "explanation": "Liste kantinlerde uygulanabilecek en yüksek fiyatları belirliyor; fiilî satış fiyatlarını veya ailelerin harcamalarını ölçmüyor.",
+      "uncertainty": "Kantinlerin gerçekten hangi fiyatlardan satış yaptığı, tavanın ne kadar altında kaldığı veya her okulda aynı tarifenin uygulanıp uygulanmadığı belgelerde yer almıyor.",
+      "key_question": "Açıklanan kantin fiyatları herkesin ödeyeceği fiyat mı?"
+    }
+  },
+  "86": {
+    "signature": "850501d9a98c3773478b6a3153d10800b604b183fbf5180d040908b13fd5dc6b",
+    "context": {
+      "tension": "İlk doğrudan karşılaşma öncesi kullanılan tarihsel seriler, güncel form ölçümü değil.",
+      "evidence": [
+        {
+          "url": "https://www.uefa.com/uefachampionsleague/news/02a9-2181a2dae7e5-853830191db7-1000--champions-league-matchday-1-sporting-cp-vs-galatasaray-facts/",
+          "title": "Champions League Matchday 1: Sporting CP vs Galatasaray facts",
+          "finding": "UEFA maç notu: ilk doğrudan karşılaşma; sıralamalar 2025/26 lig aşamasına ait; ülke ekiplerine karşı serilerin son maçları Sporting için 2021/22, Galatasaray için 2018/19.",
+          "publisher": "UEFA",
+          "published_at": "2026-09-03",
+          "evidence_type": "official"
+        }
+      ],
+      "narration": "Sporting ile Galatasaray, UEFA organizasyonlarında ilk kez karşılaşıyor. UEFA’nın maç notundaki Sporting’in 7’nciliği ve Galatasaray’ın 20’nciliği, 2025/26 Şampiyonlar Ligi lig aşamasına ait. Sporting’in Türk ekiplerine karşı son beş maçının dördünü kazanması ve Galatasaray’ın Portekiz ekiplerine karşı son beş maçında galibiyet alamaması ise daha eski karşılaşmaları kapsıyor. Bu serilerin son maçları sırasıyla 2021/22 ve 2018/19 sezonlarında oynandığı için bu veriler iki takımın bugünkü formunu doğrudan göstermiyor.",
+      "explanation": "7’ncilik ve 20’ncilik 2025/26 sezonuna ait; ülke ekiplerine karşı seriler daha eski maçları kapsıyor.",
+      "uncertainty": "Bu geçmiş sonuçlardan yeni karşılaşmanın sonucu kesin olarak çıkarılamaz.",
+      "key_question": "Maç öncesi istatistikler hangi dönemi anlatıyor?"
+    }
+  },
+  "87": {
+    "signature": "051191f0225fd17705d2fb2826c87dd26cf6a6fa9a105cf17471f14bbf5544c1",
+    "context": {
+      "tension": "Soykırım mahkûmiyetine rağmen askerî onur töreni düzenlenmesi tepkinin merkezinde.",
+      "evidence": [
+        {
+          "url": "https://www.mfa.gov.tr/sc_-15_-disisleri-bakanligi-sozcusu-oncu-keceli-nin-ratko-mladic-in-cenaze-toreni-hk-sc.tr.mfa",
+          "title": "SC-15: Öncü Keçeli’nin Ratko Mladiç’in cenaze töreni hakkındaki cevabı",
+          "finding": "Bakanlık, cenazenin suçların inkârına ve failin kahramanlaştırılmasına araç edilmesini reddediyor; mağdurlara ve bölgesel uzlaşmaya verdiği zararı gerekçe gösteriyor.",
+          "publisher": "T.C. Dışişleri Bakanlığı",
+          "published_at": "2026-09-08",
+          "evidence_type": "official"
+        },
+        {
+          "url": "https://apnews.com/article/c9b76f4f46e702684601d3abcddebe79",
+          "title": "War criminal Mladic is buried as a hero in Serbia despite EU warnings",
+          "finding": "Belgrad’daki cenaze askerî onurla gerçekleştirildi; ayini Patrik Porfirije yönetti.",
+          "publisher": "AP News",
+          "published_at": "2026-09-07",
+          "evidence_type": "current"
+        },
+        {
+          "url": "https://www.eeas.europa.eu/eeas/spokesperson-statement-death-ratko-mladic_en",
+          "title": "Spokesperson Statement on the death of Ratko Mladić",
+          "finding": "2017’de verilen ömür boyu hapis hükmünü ve Srebrenitsa soykırımını hatırlatıyor; savaş suçlularının yüceltilmesini Avrupa değerleriyle bağdaşmaz buluyor.",
+          "publisher": "European External Action Service",
+          "published_at": "2026-09-07",
+          "evidence_type": "official"
+        }
+      ],
+      "narration": "Mladiç, Srebrenitsa soykırımı ve diğer savaş suçları nedeniyle 2017’de ömür boyu hapse mahkûm edilmişti. Buna rağmen 7 Eylül 2026’da Belgrad’daki cenazesinde askerî onur töreni düzenlendi; ayini Sırp Ortodoks Kilisesi Patriği Porfirije yönetti. Dışişleri, 8 Eylül açıklamasında cenazenin mahkeme kararlarını reddetmek ve Mladiç’i kahramanlaştırmak için kullanılmasına tepki gösterdi. Bakanlığa göre bu tutum mağdurların acısını artırıyor ve bölgedeki barış ile uzlaşma çalışmalarına zarar veriyor.",
+      "explanation": "Dışişleri, kesinleşmiş mahkeme kararlarına rağmen cenazenin Mladiç’i kahramanlaştırmaya ve suçlarını inkâra araç edilmesinin mağdurlara ve bölgesel uzlaşmaya zarar verdiğini belirtiyor.",
+      "uncertainty": "",
+      "key_question": "Dışişleri cenaze törenine neden tepki gösterdi?"
+    }
+  }
+}

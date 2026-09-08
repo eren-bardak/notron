@@ -3,12 +3,13 @@ import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from pathlib import Path
 
 from pydantic import BaseModel, Field
 from .models import Evidence
 from .research_event import load_event
 
-CONTEXT_REVISION = 2
+CONTEXT_REVISION = 3
 BACKGROUND_RULES = """
 Background must answer the missing WHY behind this exact occurrence. Before
 writing, identify the one question a curious reader would immediately ask:
@@ -37,6 +38,13 @@ connection to today's development, and any material uncertainty. Avoid general
 history lessons, repetition of the current summary, generic risk prose and
 sensational labels. Readers should understand what is surprising without being
 told 'çarpıcı çelişki'. Never imply a court accepted every allegation in a petition.
+An unknown ignition cause cannot explain why a fire continued. Loss of control
+describes a crash, not its technical cause. Do not manufacture 'people think X'
+to create a contrast. Preserve conditions and exceptions in legal rules. Label
+last season's standings as last season, not current form. Date every earlier
+development accurately; a years-old resolution alone cannot establish the cause
+of today's response. Omit unrelated general advice even when officially sourced.
+Never invent source publication dates; use an empty string when unverified.
 """
 
 
@@ -84,10 +92,21 @@ def curated_uskudar(payload):
         evidence=[Evidence(title=t, finding=f, publisher=p, url=u, published_at=d, evidence_type="historical") for t,f,p,u,d in sources])
 
 
+def reviewed_context(payload):
+    # These edits apply only to the exact reporting snapshot that was reviewed.
+    path = Path(__file__).with_name("reviewed_backgrounds.json")
+    if not path.exists():
+        return None
+    item = json.loads(path.read_text()).get(str(payload.get("event", {}).get("id")))
+    if not item or item.get("signature") != story_signature(payload):
+        return None
+    return BackgroundContext.model_validate(item["context"])
+
+
 def research_context(client, model, payload, research):
-    curated = curated_uskudar(payload)
-    if curated:
-        return curated
+    reviewed = reviewed_context(payload)
+    if reviewed:
+        return reviewed
     instructions = BACKGROUND_RULES + """
 Use web search to verify the missing reasons and relevant earlier developments.
 Prefer original decisions, official documents and direct statements; use reliable

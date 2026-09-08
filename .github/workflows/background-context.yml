@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'backend/deep_dive/background_context.py'
+      - 'backend/deep_dive/reviewed_backgrounds.json'
       - 'backend/refresh_backgrounds.py'
       - 'tests/test_background_context.py'
       - 'tests/test_single_data_question.py'

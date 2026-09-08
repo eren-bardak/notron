@@ -3,9 +3,10 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-from deep_dive.background_context import apply_context, curated_uskudar, story_signature
+from deep_dive.background_context import apply_context, curated_uskudar, reviewed_context, story_signature
 
 
 class BackgroundContextTests(unittest.TestCase):
@@ -38,6 +39,15 @@ class BackgroundContextTests(unittest.TestCase):
         payload={'event':{'id':75,'title':'Üsküdar','summary':'Seçim'},'articles':[{'id':1}]}
         self.assertNotEqual(story_signature(payload),story_signature({**payload,'articles':[{'id':1},{'id':2}]}))
         self.assertNotEqual(story_signature(payload),story_signature({**payload,'articles':[{'id':1,'description':'Düzeltilen haber'}]}))
+
+    def test_reviewed_background_does_not_override_changed_reporting(self):
+        import json
+        payload={'event':{'id':75,'title':'Üsküdar'},'articles':[{'id':1}]}
+        context=curated_uskudar(payload)
+        saved=json.dumps({'75':{'signature':story_signature(payload),'context':context.model_dump()}})
+        with patch('deep_dive.background_context.Path.exists',return_value=True), patch('deep_dive.background_context.Path.read_text',return_value=saved):
+            self.assertEqual(reviewed_context(payload).narration,context.narration)
+            self.assertIsNone(reviewed_context({**payload,'articles':[{'id':1,'content':'Updated account'}]}))
 
 
 if __name__ == '__main__':
