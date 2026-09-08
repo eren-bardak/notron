@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from openai import OpenAI
 
 from .models import ResearchBundle
-from editorial_quality import EDITORIAL_REVISION
+from editorial_quality import RESEARCH_REVISION
 
 
 def load_event(db, event_id: int) -> dict:
@@ -163,5 +163,5 @@ Write neutral Turkish. Never invent a number or causal relationship.
 
     if result is None:
         raise RuntimeError("The research response could not be parsed")
-    result.editorial_revision = EDITORIAL_REVISION
+    result.editorial_revision = RESEARCH_REVISION
     return result

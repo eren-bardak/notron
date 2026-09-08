@@ -122,7 +122,8 @@ class BinaryQuestion(BaseModel):
 
 
 class EditorialReview(BaseModel):
-    revision: Literal[1] = 1
+    revision: Literal[2] = 2
+    question_intent: Literal["read_off", "numerical_description", "event_implication", "conditional_outlook"] = "read_off"
     event_specific: bool = False
     matches_displayed_evidence: bool = False
     evidence_relevant: bool = False

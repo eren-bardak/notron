@@ -37,7 +37,7 @@ def research():
 class SingleQuestionTests(unittest.TestCase):
     def test_generation_schema_has_one_metric_and_no_additional_prompts(self):
         question = BinaryQuestion.model_validate(QUESTION)
-        self.assertEqual(ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True).binary_questions, [question])
+        self.assertEqual(ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, question_intent="event_implication").binary_questions, [question])
         for questions in ([], [question, question]):
             with self.assertRaises(ValidationError):
                 ReviewedQuestions(binary_questions=questions)
@@ -53,7 +53,7 @@ class SingleQuestionTests(unittest.TestCase):
     def test_review_accepts_one_data_question_and_rejects_empty_or_duplicate_answers(self):
         question = BinaryQuestion.model_validate(QUESTION)
         client = Mock()
-        reviewed = ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True)
+        reviewed = ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, question_intent="event_implication")
         client.responses.parse.return_value = SimpleNamespace(output_parsed=reviewed)
         self.assertEqual(review_questions(client, "test-model", research(), [question]), [question])
         with self.assertRaises(ValidationError):
@@ -64,7 +64,7 @@ class SingleQuestionTests(unittest.TestCase):
         ):
             bad = BinaryQuestion.model_validate({**QUESTION, **changes})
             client.responses.parse.return_value = SimpleNamespace(
-                output_parsed=ReviewedQuestions(binary_questions=[bad], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True))
+                output_parsed=ReviewedQuestions(binary_questions=[bad], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, question_intent="event_implication"))
             with self.assertRaises(ValueError):
                 review_questions(client, "test-model", research(), [question])
 
@@ -73,7 +73,7 @@ class SingleQuestionTests(unittest.TestCase):
         client = Mock()
         chart = {"chart_type": "metric", "title": "Proje kapasitesi", "unit": "kişi", "points": [{"label": "Kapasite", "value": 120}]}
         client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(
-            binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True))
+            binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, question_intent="event_implication"))
         review_questions(client, "test-model", research(), [question], [chart])
         prompt = client.responses.parse.call_args.kwargs["input"]
         import json
@@ -137,7 +137,7 @@ class SingleQuestionTests(unittest.TestCase):
                          "is_visible": True, "numeric_data": numeric, "source_count": 2,
                          "popularity_score": 100, "popularity_updated_at": now.isoformat()}
                 analysis = {"schema_version": 2, "question_revision": revision,
-                            "binary_questions": copy.deepcopy(questions), "charts": [chart], "editorial_review": {"revision": 1, "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True}}
+                            "binary_questions": copy.deepcopy(questions), "charts": [chart], "editorial_review": {"revision": 2, "question_intent": "event_implication", "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True}}
                 rows = [{"event_id": 1, "status": "ready", "analysis": analysis}]
                 original = copy.deepcopy(rows)
                 db = Mock()

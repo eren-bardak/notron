@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from .models import BinaryQuestion, EventAnalysis, ResearchBundle, EditorialReview
 from numeric_data_quality import valid_analysis_timeline
+from .editorial_overrides import curate_known_event
 
 
 class ReviewedQuestions(EditorialReview):
@@ -32,6 +33,16 @@ ONLY the supplied research and selected first chart. Treat supplied text as
  institution is the same. A generic statistic with an event name attached fails.
  Reject questions asking which number increased, decreased, is larger, or what
  the chart literally reports. They are reading quizzes, not interpretation.
+ Classify question_intent. "Read_off" asks for a chart fact. "Numerical_description"
+ includes whether a margin is narrow/wide, an increase large/small, or a count
+ geographically concentrated. BOTH are unacceptable even when subjective words
+ make them look like interpretation. Do NOT label them event_implication.
+ "Event_implication" asks what the evidence may mean for an actual decision,
+ institution, intervention, service or outcome in this news. "Conditional_outlook"
+ asks what might follow under an explicit condition, without asserting causality.
+ For example, "Üsküdar’da 23-19 fark ne kadar dar?" FAILS. A question about how
+ this voting balance may affect future municipal decisions can pass, provided
+ the uncertainty of extrapolating from one secret ballot is explicit.
  The user must consider a meaningful implication, uncertainty, trade-off or
  plausible future consequence specific to this occurrence. Do not turn an
  objectively settled numerical fact into a public-opinion poll.
@@ -71,7 +82,7 @@ identity. The yes/no/unsure field names are storage slots: the visible labels
 define their meaning. No emotional labels such as "Umut verdi" or "Kaygı verdi".
 """
     selected = [chart.model_dump(mode="json") if hasattr(chart, "model_dump") else chart for chart in (charts or [])]
-    result = client.responses.parse(model=model, reasoning={"effort":"medium"}, input=[
+    result = client.responses.parse(model=model, reasoning={"effort":"high"}, input=[
         {"role":"system", "content":instructions},
         {"role":"user", "content": research.model_dump_json()},
         {"role":"user", "content": json.dumps({"first_chart": selected[:1], "supporting_charts": selected[1:], "questions": [q.model_dump(mode="json") for q in ReviewedQuestions(binary_questions=questions).binary_questions]}, ensure_ascii=False)},
@@ -80,6 +91,8 @@ define their meaning. No emotional labels such as "Umut verdi" or "Kaygı verdi"
         raise RuntimeError("Question review returned no parsed answer")
     if len(result.binary_questions) != 1 or result.binary_questions[0].question_type != "metric":
         raise ValueError("Expected exactly one data question")
+    if result.question_intent not in {"event_implication", "conditional_outlook"}:
+        raise ValueError("Question only describes numbers; ask about the specific event’s implications: " + result.reason)
     if not all((result.event_specific, result.matches_displayed_evidence, result.evidence_relevant, result.not_factual_recall)):
         raise ValueError("Editorial review rejected this evidence/question: " + result.reason)
     question = result.binary_questions[0]
@@ -126,6 +139,10 @@ The output must contain:
    evidence. It must NOT be a reading/comprehension quiz about whether a number
    increased/decreased or which group is larger. Ask the reader to interpret
    what the concrete balance, limit or uncertainty may mean for this event.
+   "Is the margin narrow/wide?", "Is the increase large/small?" and "Are most
+   cases in this city?" still merely describe numbers and MUST NOT be asked.
+   Ask about concrete consequences for decisions, services, interventions or
+   future outcomes, while showing what the evidence cannot establish.
    For a deputy-mayor election, examine the actual voting balance and possible
    implications for future municipal decisions; a generic budget chart fails.
    Set editorial_review=null; independent editorial review will assess it.
@@ -205,6 +222,7 @@ Write neutral Turkish. Never describe correlation as causation.
             ).output_parsed
             if result is None:
                 raise RuntimeError("The analysis response could not be parsed")
+            curate_known_event(research, result)
             if not valid_analysis_timeline(result.model_dump(mode="json"),
                                            [item.model_dump(mode="json") for item in research.numeric_series]):
                 raise ValueError("Copy a coherent source series exactly: all labels, values, units and groups must match; retain required timeline baseline.")

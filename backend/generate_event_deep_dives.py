@@ -16,7 +16,7 @@ from event_images import refresh_event_covers
 from numeric_data_quality import valid_analysis_timeline
 from pipeline_visibility import enforce_previous_year_gate, publish_ready_events, valid_questions, valid_numeric_data
 from popularity import POLICY, current_score
-from editorial_quality import EDITORIAL_REVISION, current_editorial
+from editorial_quality import RESEARCH_REVISION, current_editorial
 
 
 load_dotenv()
@@ -82,7 +82,7 @@ def main() -> None:
 
         try:
             cached = stored_by_id.get(event_id, {})
-            if not args.force and (cached.get("research") or {}).get("editorial_revision") == EDITORIAL_REVISION and valid_numeric_data(event.get("numeric_data")):
+            if not args.force and (cached.get("research") or {}).get("editorial_revision") == RESEARCH_REVISION and valid_numeric_data(event.get("numeric_data")):
                 try:
                     research = ResearchBundle.model_validate(cached["research"])
                     print(f"Refresh questions from saved research | event={event_id}")

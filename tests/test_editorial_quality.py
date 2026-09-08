@@ -9,7 +9,7 @@ from popularity import question_ids
 
 class EditorialQualityTests(unittest.TestCase):
     def test_legacy_and_failed_reviews_require_refresh(self):
-        review = {"revision": 1, "event_specific": True, "matches_displayed_evidence": True,
+        review = {"revision": 2, "question_intent": "event_implication", "event_specific": True, "matches_displayed_evidence": True,
                   "evidence_relevant": True, "not_factual_recall": True}
         self.assertTrue(current_editorial({"editorial_review": review}))
         for old in (None, {}, {"editorial_review": None}, {"editorial_review": {"revision": 0}}):
