@@ -6,9 +6,16 @@ from popularity import POLICY, current_score, parse_time, read_all
 
 def valid_questions(analysis):
     questions = analysis.get('binary_questions') if isinstance(analysis, dict) else None
-    return isinstance(questions, list) and len(questions) == 3 and all(
-        isinstance(q, dict) and isinstance(q.get('question'), str) and q['question'].strip()
-        for q in questions)
+    if not isinstance(questions, list) or len(questions) not in (1, 3):
+        return False
+    if not all(isinstance(q, dict) and isinstance(q.get('question'), str)
+               and q['question'].strip() for q in questions):
+        return False
+    # Keep legacy arrays untouched: their original positions are part of ballot IDs.
+    metrics = [q for q in questions if q.get('question_type') == 'metric']
+    return (len(metrics) == 1 and isinstance(metrics[0].get('data_anchor'), str)
+            and bool(metrics[0]['data_anchor'].strip()))
+
 
 
 def ready_event_ids(events, analyses, now=None, limit=None):

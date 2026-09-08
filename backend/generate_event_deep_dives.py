@@ -25,7 +25,7 @@ MAX_EVENTS_PER_RUN = int(os.getenv("MAX_DEEP_DIVES_PER_RUN", "20"))
 
 
 def main() -> None:
-    """Research ranked clusters, then publish only complete three-question files."""
+    """Research ranked clusters, then publish complete files with one data question."""
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -66,7 +66,8 @@ def main() -> None:
     print(f"Revalidated previous_year={datetime.now(timezone.utc).year - 1} | rejected={len(rejected)}", flush=True)
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     stored_by_id = {int(row["event_id"]): row for row in stored}
-    ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") == 2}
+    # Existing ready metric ballots keep their wording, full array and hashed IDs.
+    ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") in (2, 3)}
     pending = eligible if args.force else [event for event in eligible if not event.get("enough_data") or not valid_numeric_data(event.get("numeric_data")) or int(event["id"]) not in ready]
     failures = 0
     # Update existing covers first; missing-data research may take much longer.
@@ -115,10 +116,11 @@ def main() -> None:
                 continue
 
             old_analysis = cached.get("analysis") or {}
-            if (not args.force and old_analysis.get("schema_version") == 2 and valid_questions(old_analysis)
+            if (not args.force and old_analysis.get("schema_version") == 2
+                    and old_analysis.get("question_revision") == 3 and valid_questions(old_analysis)
                     and valid_analysis_timeline(old_analysis, [series.model_dump(mode="json") for series in research.numeric_series])):
                 # A wording repair needs no second data-story generation or web search.
-                analysis = EventAnalysis.model_validate({**old_analysis, "question_revision": 2})
+                analysis = EventAnalysis.model_validate(old_analysis)
                 analysis.binary_questions = review_questions(client, model, research, analysis.binary_questions)
                 analysis.generated_at = datetime.now(timezone.utc).isoformat()
             else:

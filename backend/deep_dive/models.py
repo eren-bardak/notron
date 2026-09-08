@@ -99,7 +99,7 @@ class DataStory(BaseModel):
     limitations: list[str] = Field(min_length=1, max_length=6)
 
 
-class ReactionLabels(BaseModel):
+class AnswerLabels(BaseModel):
     yes: str = Field(min_length=1, max_length=24)
     no: str = Field(min_length=1, max_length=24)
     unsure: str = Field(min_length=1, max_length=24)
@@ -108,15 +108,15 @@ class ReactionLabels(BaseModel):
 class BinaryQuestion(BaseModel):
     id: str
     question: str = Field(min_length=5, max_length=100)
-    data_anchor: str = Field(max_length=180)
+    data_anchor: str = Field(min_length=1, max_length=180)
     why_it_matters: str
-    question_type: Literal["reaction", "priority", "metric"]
-    choice_labels: ReactionLabels
+    question_type: Literal["metric"]
+    choice_labels: AnswerLabels
 
 
 class EventAnalysis(BaseModel):
     schema_version: Literal[2]
-    question_revision: Literal[2]
+    question_revision: Literal[3]
     event_id: int
     title: str
     generated_at: str
@@ -124,6 +124,4 @@ class EventAnalysis(BaseModel):
     event_explanation: StorySection
     data_story: DataStory
     charts: list[Chart] = Field(min_length=1, max_length=2)
-    binary_questions: list[BinaryQuestion] = Field(min_length=3, max_length=3)
-    normative_question: str
-    cross_group_question: str
+    binary_questions: list[BinaryQuestion] = Field(min_length=1, max_length=1)

@@ -7,7 +7,7 @@ from popularity import score_event, normalize, question_ids, current_score, read
 from pipeline_visibility import ready_event_ids
 
 NOW = datetime(2026, 9, 8, 12, tzinfo=timezone.utc)
-QUESTIONS = {'binary_questions': [{'question': 'Öncelik verilmeli mi?'}, {'question':'Denetlenmeli mi?'}, {'question':'Etkilendin mi?'}]}
+QUESTIONS = {'binary_questions': [{'question': 'Öncelik verilmeli mi?'}, {'question':'Denetlenmeli mi?'}, {'question':'Bu artış ne gösteriyor?', 'question_type':'metric', 'data_anchor':'2025: %12'}]}
 
 def article(i, source, hours=0, **extra):
     return {'id': i, 'source': source, 'title': f'News {i}', 'url': f'https://example.org/{i}', 'published_at': (NOW-timedelta(hours=hours)).isoformat(), **extra}
