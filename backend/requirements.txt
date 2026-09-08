@@ -5,3 +5,4 @@ supabase
 beautifulsoup4
 feedparser
 requests
+Pillow>=11,<13

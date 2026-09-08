@@ -4,11 +4,14 @@ from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from pydantic import ValidationError
 from supabase import create_client
 
 from deep_dive.analyze_event import analyze_event
 from deep_dive.research_event import load_event, research_event
 from deep_dive.save_analysis import save_analysis
+from deep_dive.models import ResearchBundle
+from event_images import refresh_event_covers
 from pipeline_visibility import publish_ready_events, valid_questions, valid_numeric_data
 from popularity import POLICY, current_score
 
@@ -37,7 +40,7 @@ def main() -> None:
 
     events = (
         db.table("events")
-        .select("id,created_at,numeric_data,problem_supported,source_count,popularity_score,popularity_updated_at")
+        .select("id,created_at,numeric_data,enough_data,problem_supported,source_count,popularity_score,popularity_updated_at")
         .gte("created_at", cutoff.isoformat())
         .lte("created_at", datetime.now(timezone.utc).isoformat())
         .order("popularity_score", desc=True)
@@ -48,9 +51,10 @@ def main() -> None:
     eligible = [event for event in events if (event.get("source_count") or 0) >= 2
                 and current_score(event, datetime.now(timezone.utc)) >= POLICY["display_threshold"]]
     ids = [int(event["id"]) for event in eligible]
-    stored = (db.table("event_analyses").select("event_id,status,analysis").in_("event_id", ids).execute().data) if ids else []
-    ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and valid_questions(row.get("analysis"))}
-    pending = eligible if args.force else [event for event in eligible if not valid_numeric_data(event.get("numeric_data")) or int(event["id"]) not in ready]
+    stored = (db.table("event_analyses").select("event_id,status,analysis,research").in_("event_id", ids).execute().data) if ids else []
+    stored_by_id = {int(row["event_id"]): row for row in stored}
+    ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2}
+    pending = eligible if args.force else [event for event in eligible if not event.get("enough_data") or not valid_numeric_data(event.get("numeric_data")) or int(event["id"]) not in ready]
     failures = 0
 
     for event in pending[:MAX_EVENTS_PER_RUN]:
@@ -58,8 +62,16 @@ def main() -> None:
         print(f"Deep dive research | event={event_id}")
 
         try:
-            payload = load_event(db, event_id)
-            research = research_event(client, model, event_id, payload)
+            cached = stored_by_id.get(event_id, {})
+            if not args.force and cached.get("status") == "ready" and cached.get("research") and valid_numeric_data(event.get("numeric_data")):
+                try:
+                    research = ResearchBundle.model_validate(cached["research"])
+                    print(f"Refresh questions from saved research | event={event_id}")
+                except ValidationError:
+                    research = research_event(client, model, event_id, load_event(db, event_id))
+            else:
+                payload = load_event(db, event_id)
+                research = research_event(client, model, event_id, payload)
             if research.event_id != event_id:
                 raise ValueError("Research returned a different event ID; no analysis was saved.")
 
@@ -103,7 +115,17 @@ def main() -> None:
             print(f"Deep dive failed | event={event_id} | error={error}")
             failures += 1
 
+    # Photo review also covers already-ready events and does not alter question IDs.
+    refresh_event_covers(db, client, model, ids, max_reviews=MAX_EVENTS_PER_RUN)
     publish_ready_events(db)
+    try:
+        db.table("event_comments").select("user_id").limit(0).execute()
+        print("Family preview readiness | Writer account column ready")
+    except Exception as error:
+        if getattr(error, "code", None) == "42703":
+            print("Family preview readiness | Writer posting requires backend/writer_identity_migration.sql")
+        else:
+            print("Family preview readiness | Writer schema check unavailable")
     if failures:
         raise RuntimeError(f"{failures} deep dives failed. Successful analyses were retained; retry the pipeline.")
 

@@ -99,15 +99,23 @@ class DataStory(BaseModel):
     limitations: list[str] = Field(min_length=1, max_length=6)
 
 
+class ReactionLabels(BaseModel):
+    yes: str = Field(min_length=1, max_length=24)
+    no: str = Field(min_length=1, max_length=24)
+    unsure: str = Field(min_length=1, max_length=24)
+
+
 class BinaryQuestion(BaseModel):
     id: str
-    question: str
-    data_anchor: str
+    question: str = Field(min_length=5, max_length=100)
+    data_anchor: str = Field(max_length=180)
     why_it_matters: str
-    question_type: Literal["threshold", "trend", "outlier", "tradeoff", "comparison"]
+    question_type: Literal["reaction", "priority", "metric"]
+    choice_labels: ReactionLabels
 
 
 class EventAnalysis(BaseModel):
+    schema_version: Literal[2]
     event_id: int
     title: str
     generated_at: str

@@ -64,21 +64,26 @@ def question_ids(analysis):
     questions = analysis.get('binary_questions') if isinstance(analysis, dict) else None
     if not isinstance(questions, list):
         return result
+    questions = [q for q in questions if isinstance(q, dict) and isinstance(q.get("question"), str) and q["question"].strip()][:3]
     for index, question in enumerate(questions):
         text = question.get('question', '') if isinstance(question, dict) else ''
         if not isinstance(text, str) or not text.strip():
             continue
+        labels = question.get("choice_labels")
+        modern = isinstance(labels, dict) and all(isinstance(labels.get(k), str) and labels[k].strip() for k in ("yes", "no", "unsure"))
+        if modern:
+            text = "\x1f".join([text, labels["yes"], labels["no"], labels["unsure"], question.get("data_anchor") if isinstance(question.get("data_anchor"), str) else ""])
         value = 2166136261
         for char in text:
             code = ord(char)
-            if code > 0xFFFF:
+            if not modern and code > 0xFFFF:
                 code = 0xD800 + ((code - 0x10000) >> 10)
             value = ((value ^ code) * 16777619) & 0xFFFFFFFF
         digits = ''
         while value:
             value, remainder = divmod(value, 36)
             digits = '0123456789abcdefghijklmnopqrstuvwxyz'[remainder] + digits
-        result.add(f'n3_{digits or "0"}_{index}')
+        result.add(f'{"n4" if modern else "n3"}_{digits or "0"}_{index}')
     return result
 
 
@@ -112,6 +117,7 @@ def score_event(event, links, news_by_id, sides, micro, comments, answers, analy
     seen_ids, seen_urls, seen_titles = set(), set(), set()
     article_score = 0.0
     group_first = {}
+    publisher_first = {}
     recent_sources = set()
     side_sources = {'left': set(), 'center': set(), 'right': set()}
     cutoff = now - timedelta(hours=POLICY['event_window_hours'])
@@ -128,6 +134,8 @@ def score_event(event, links, news_by_id, sides, micro, comments, answers, analy
         if title:
             seen_titles.add(title_key)
         article_score += POLICY['article_points'] * decay(at, now)
+        if source in sides and source not in publisher_first:
+            publisher_first[source] = at
         side = sides.get(source)
         if side and side not in group_first:
             group_first[side] = at
@@ -138,6 +146,10 @@ def score_event(event, links, news_by_id, sides, micro, comments, answers, analy
     group_times = sorted(group_first.values())
     cross_at = group_times[1] if len(group_times) >= 2 else None
     bonus = POLICY['cross_group_points'] * decay(cross_at, now)
+    # Each registered publisher earns a one-time breadth contribution after the first.
+    # Age from its first article, never a rerun or a later repost. Ownership is unknown.
+    breadth_times = sorted(publisher_first.values())[1:1 + POLICY["publisher_breadth_cap"]]
+    breadth = POLICY["publisher_breadth_points"] * sum(decay(at, now) for at in breadth_times)
     own = lambda rows: [r for r in rows if int(r['event_id']) == event_id]
     micro_score, micro_count = scored_people(own(micro), now, lambda r: r.get('status') == 'active' and bool(str(r.get('text') or '').strip()))
     writer_score, writer_count = scored_people(own(comments), now, lambda r: r.get('status') == 'active' and r.get('author_role') == 'writer' and bool(str(r.get('text') or '').strip()))
@@ -146,9 +158,10 @@ def score_event(event, links, news_by_id, sides, micro, comments, answers, analy
         values = row.get('binary_answers')
         return isinstance(values, dict) and any(isinstance(values.get(key), str) and values[key] in {'yes', 'no', 'unsure'} for key in valid_ids)
     vote_score, vote_count = scored_people(own(answers), now, has_vote)
-    score = article_score + bonus + POLICY['participation_points'] * (micro_score + vote_score) + POLICY['writer_points'] * writer_score
+    score = article_score + bonus + breadth + POLICY['participation_points'] * (micro_score + vote_score) + POLICY['writer_points'] * writer_score
     return {'score': score, 'source_count': len(recent_sources), 'side_sources': side_sources,
             'micro_count': micro_count, 'writer_count': writer_count, 'vote_count': vote_count,
+            'publisher_breadth_score': breadth,
             'cross_group_at': cross_at.isoformat() if cross_at else None}
 
 

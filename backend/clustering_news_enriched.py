@@ -678,7 +678,8 @@ def main():
             "central_problem": text(event.central_problem),
         }
 
-        cover_image_url = choose_cover_image(db, articles)
+        # Keep an existing reviewed cover until the final-stage photo review.
+        cover_image_url = choose_cover_image(db, articles) if old_event_id is None else None
 
         if cover_image_url:
             event_data["cover_image_url"] = cover_image_url

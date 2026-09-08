@@ -20,19 +20,19 @@ def score(news, now=NOW, **extra):
 class ScoreTests(unittest.TestCase):
     def test_same_snapshot_retries_do_not_inflate_and_six_hours_halves(self):
         news=[article(1,'A'),article(2,'B')]
-        self.assertEqual(score(news)['score'],30)
+        self.assertEqual(score(news)['score'],33)
         self.assertEqual(score(news)['score'],score(news)['score'])
-        self.assertEqual(score(news, NOW+timedelta(hours=6))['score'],15)
-        self.assertEqual(score(news, NOW+timedelta(hours=12))['score'],7.5)
+        self.assertEqual(score(news, NOW+timedelta(hours=6))['score'],16.5)
+        self.assertEqual(score(news, NOW+timedelta(hours=12))['score'],8.25)
 
     def test_new_activity_does_not_refresh_old_points(self):
         news=[article(1,'A',6),article(2,'B',6),article(3,'C')]
-        self.assertEqual(score(news)['score'],20)  # previous 30 / 2, plus one new 5
+        self.assertEqual(score(news)['score'],24.5)  # previous 33 / 2, plus article 5 and new publisher 3
 
     def test_first_second_group_earns_bonus_once(self):
         self.assertEqual(score([article(1,'A'),article(2,'A')])['score'],10)
-        self.assertEqual(score([article(1,'A'),article(2,'A'),article(3,'B')])['score'],35)
-        self.assertEqual(score([article(1,'A'),article(2,'B'),article(3,'C')])['score'],35)
+        self.assertEqual(score([article(1,'A'),article(2,'A'),article(3,'B')])['score'],38)
+        self.assertEqual(score([article(1,'A'),article(2,'B'),article(3,'C')])['score'],41)
         self.assertEqual(score([article(1,'A'),article(2,'Unknown')])['score'],10)
 
     def test_duplicate_links_urls_and_titles_do_not_create_points_or_sources(self):
@@ -70,9 +70,28 @@ class ScoreTests(unittest.TestCase):
         later=NOW+timedelta(hours=4)
         self.assertAlmostEqual(current_score(event,later),score(news,later)['score'])
 
+    def test_publisher_breadth_is_capped_and_repeat_coverage_cannot_refresh_it(self):
+        rows = [article(i, chr(64+i), 6) for i in range(1, 8)]
+        sides = {normalize(a['source']): None for a in rows}
+        def calculate(news):
+            return score_event({'id':1}, [{'event_id':1,'news_id':a['id']} for a in news],
+                {a['id']:a for a in news}, sides, [], [], [], QUESTIONS, NOW)
+        self.assertEqual(calculate(rows)['publisher_breadth_score'], 6)  # 12 / 2
+        repeated = rows + [article(8, 'B'), article(9, 'Invented publisher')]
+        self.assertEqual(calculate(repeated)['publisher_breadth_score'], 6)
+
+    def test_reaction_labels_are_part_of_ballot_identity(self):
+        q = {'question':'Bu gelişme sana ne hissettirdi?', 'choice_labels':{'yes':'Umut verdi','no':'Kaygı verdi','unsure':'Etkilemedi'}}
+        original = question_ids({'binary_questions':[q]})
+        self.assertTrue(next(iter(original)).startswith('n4_'))
+        changed = {**q, 'choice_labels':{**q['choice_labels'],'yes':'Güven verdi'}}
+        self.assertNotEqual(original, question_ids({'binary_questions':[changed]}))
+        self.assertNotEqual(original, question_ids({'binary_questions':[{'question':q['question']}]}))
+        self.assertEqual(original, question_ids({'binary_questions':[None, {}, q]}))
+
     def test_historical_group_crossing_does_not_refresh_after_old_article_expires(self):
         result=score([article(1,'A',37),article(2,'B',36),article(3,'A')])
-        expected=5*2**(-37/6)+5*2**(-36/6)+5+20*2**(-36/6)
+        expected=5*2**(-37/6)+5*2**(-36/6)+5+23*2**(-36/6)
         self.assertAlmostEqual(result['score'],expected)
 
     def test_read_all_paginates_and_propagates_failure(self):

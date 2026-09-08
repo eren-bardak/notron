@@ -6,5 +6,7 @@
   "half_life_hours": 6,
   "display_threshold": 5,
   "primary_limit": 3,
-  "event_window_hours": 36
+  "event_window_hours": 36,
+  "publisher_breadth_points": 3,
+  "publisher_breadth_cap": 4
 }

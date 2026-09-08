@@ -29,8 +29,8 @@ The output must contain:
 3. A data_story with 4 to 12 key metrics, hidden patterns, baselines,
    what to watch next and explicit limitations.
 4. The strongest one or two charts using only supplied numeric_series values.
-5. Exactly three event-specific questions anchored to supplied evidence, including
-   two normative policy tradeoffs and one question about lived experience.
+5. Exactly three short event-specific questions: one emotional reaction, one
+   normative priority choice, and ONLY ONE challenging quantified question.
 6. One data-grounded open-ended normative question about what ought to happen.
 7. One cross_group_question asking people to consider the living conditions of
    a group that answered differently and name evidence that could test their
@@ -59,24 +59,24 @@ and differences between groups. Surface important patterns that normal news
 coverage tends to omit, but never invent a cause for them.
 
 Question rules:
-- Policy questions must cite an exact number, comparison, threshold,
-  trend or outlier from the supplied research in data_anchor.
-- The lived-experience question asks about the respondent’s own experience in
-  a clear time period; never infer their experience from their identity.
-- Tailor wording to this event. Never use a stock question such as whether the
-  event is part of a larger recurring problem.
-- Vary question_type across threshold, trend, outlier, tradeoff and comparison.
-- Make why_it_matters explain the decision exposed by the data.
-- Questions must be answerable with yes/no/unsure and must not be loaded.
-- Ask one proposition per question; never combine a diagnosis with a policy choice.
-- Describe competing legitimate values without stereotyping identity groups.
-- A yes or no answer must have a clear, interpretable policy meaning.
-- Avoid accusatory wording, assumed guilt and rhetorical questions.
-- Use stable IDs q1, q2 and q3. Questions are optional for the user.
-- The normative question must also reference the event's measured tradeoff,
-  target, gap or trend rather than asking a generic "what should be done?".
-- The cross-group question must be specific to this event, non-accusatory and
-  must not assume that an identity attribute caused an answer.
+- Set schema_version=2. IDs q1/q2/q3, types reaction/priority/metric in that order.
+- q1: a simple first reaction to this specific development, ideally 4–8 words.
+  Three concrete reactions, e.g. "Umut verdi", "Kaygı verdi", "Etkilemedi";
+  tailor labels to the event. They must be mutually distinguishable, not loaded.
+- q2: a short normative choice of priority: "Önce hangi adım?" tied to this event.
+  Offer two legitimate, concrete actions and a third "Kararsızım" choice.
+  Do not ask yes/no. Never assume wrongdoing or imply one choice is morally best.
+- q3: the ONLY difficult question, about interpreting one exact supplied number,
+  comparison or tradeoff. At most 100 characters, one proposition.
+  Put the exact source-backed figure, unit and period in data_anchor (max 180 chars).
+  No invented numeric target or unsupported benchmark. Offer three concise labels
+  matching the interpretation, such as "Yeterli", "Yetersiz", "Veri yetmiyor".
+- q1 and q2 data_anchor must be empty; keep all questions <=100 characters.
+- choice_labels has internal slots yes/no/unsure; these are storage keys, NOT
+  required meanings. Each visible Turkish label is at most 24 characters.
+- State what each answer means without stereotyping any identity group.
+- why_it_matters: one short sentence. Do not invent causes, guilt or shared experience.
+- Keep normative_question and cross_group_question to one short optional prompt.
 
 Copy every key metric exactly from metric_candidates. Do not introduce a new
 number in the analysis. Use data limitations to prevent false precision.
@@ -96,6 +96,15 @@ Write neutral Turkish. Never describe correlation as causation.
     if result is None:
         raise RuntimeError("The analysis response could not be parsed")
 
+    if [q.question_type for q in result.binary_questions] != ["reaction", "priority", "metric"]:
+        raise ValueError("Expected two simple reactions and exactly one quantified question")
+    if not result.binary_questions[2].data_anchor.strip():
+        raise ValueError("The quantified question requires its evidence anchor")
+    for question in result.binary_questions:
+        if len(set(question.choice_labels.model_dump().values())) != 3:
+            raise ValueError("Each question needs three distinct reactions")
+    for question in result.binary_questions[:2]:
+        question.data_anchor = ""
     result.event_id = research.event_id
     result.generated_at = datetime.now(timezone.utc).isoformat()
     return result

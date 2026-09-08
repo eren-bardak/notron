@@ -12,6 +12,7 @@ These are initial product settings, not weights calibrated against real traffic.
 | Q: micro-comment | 1 | One active scored micro-comment per account per event |
 | Q: ballot | 1 | One scored ballot per account per event, with at least one valid answer |
 | S: Writer comment | 3 | One active scored Writer comment per account per event |
+| D: registered publisher breadth | 3 each, at most 12 | Second through fifth distinct registered publisher, once each, aged from their first article |
 
 P is worth four articles, so reaching different media audiences matters. R keeps
 reporting central. Q rewards participation without letting rapid, repeated actions
@@ -37,9 +38,12 @@ For each valid contribution:
 `points now = original points × 2^(-age in hours / 6)`
 
 The score is the sum of those decayed contributions. There is no starting bonus.
-For example, two freshly published articles from different groups start at 30:
-after 6 hours, 15; after 12 hours, 7.5; after 18 hours, 3.75. A new article at
-hour 6 adds 5 to the existing 15, making 20. It does not refresh old points.
+Two freshly published articles from registered publishers in different groups
+start at 33: 10 article points + 20 cross-group points + 3 breadth points.
+After 6 hours: 16.5; after 12: 8.25; after 18: 4.125. A third registered
+publisher at hour 6 adds 5 + 3, making 24.5. Existing publishers cannot refresh
+their breadth bonus by republishing. Publisher breadth is not ownership diversity:
+the platform does not yet have reliable common-ownership or wire-origin data.
 
 The pipeline recomputes from original timestamps, rather than adding the previous
 run's counts again. Re-running the same input does not inflate its score. The web
@@ -101,6 +105,17 @@ The arrows denote sequence, not shell output redirection. A failed script stops
 the chain. Each script has a timeout; local overlapping runs are blocked on the
 same Mac/Linux host. Prior successful steps are not rolled back after a failure.
 The final stage publishes only complete, qualified analyses.
+It also refreshes older question layouts from saved research, then reviews real
+source photographs for ready events. Photo review checks actual dimensions
+(minimum 800×450), deduplicates visual variants, and asks a vision model to choose
+among at most four relevant candidates. Original publisher URLs and credits are
+preserved. No generated image or artificial upscale is used for real news.
+
+Question format v2 uses two short reactions/priority choices and exactly one
+quantified question. Visible option labels are stored alongside each question.
+Ballot fingerprints include the wording and all labels; old answers are never
+relabelled as reactions. The internal yes/no/unsure slots remain compatible with
+the existing database, but chart labels always reflect the specific question.
 
 The provided `.github/workflows/news-pipeline.yml` is configured for 00:17, 06:17,
 12:17 and 18:17 in Europe/Istanbul, plus manual runs and pipeline-code updates on
