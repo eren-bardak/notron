@@ -15,8 +15,9 @@ class CuratedUskudarTests(unittest.TestCase):
         analysis=SimpleNamespace(charts=[],binary_questions=[])
         curate_known_event(research,analysis)
         self.assertEqual([p.value for p in analysis.charts[0].points],[23,19])
-        self.assertIn('karar almayı',analysis.binary_questions[0].question)
-        self.assertEqual(analysis.binary_questions[0].choice_labels.unsure,'Tek oylama yetmez')
+        self.assertIn('hızlı karar',analysis.binary_questions[0].question)
+        self.assertIn('geniş uzlaşma',analysis.binary_questions[0].question)
+        self.assertEqual(analysis.binary_questions[0].choice_labels.unsure,'Karara göre değişir')
         data.points[0].value=22
         blank=SimpleNamespace(charts=[],binary_questions=[])
         curate_known_event(research,blank)

@@ -11,7 +11,7 @@ permissions:
   contents: read
 concurrency:
   group: notron-card-stories
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   cards:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[card-copy]')
@@ -31,10 +31,10 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: python -m pip install -r backend/requirements.txt
       - name: Verify card copy safeguards
-        run: python -m unittest discover -s tests -p 'test_cover_question.py'
+        run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Refresh current news cards
         working-directory: backend
-        run: python refresh_card_stories.py
+        run: python refresh_card_stories.py --tradeoffs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

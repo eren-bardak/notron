@@ -11,13 +11,13 @@ from deep_dive.cover_question import CoverQuestion, cover_patch, refresh_cover_q
 class CoverQuestionTests(unittest.TestCase):
     def setUp(self):
         self.research = {'evidence': [{'url': 'https://official.invalid/burs', 'finding': 'Yeni burs başvuruları açıldı.'}]}
-        self.result = CoverQuestion(question='Yeni burslar kimlerin önünü açabilir?', what_happened='Kurum, yeni burs programı için başvuruları açtı.', question_bridge='Öğrencilerin desteğe erişimi açısından:', source_urls=['https://official.invalid/burs'], evidence_basis='Burs başvurularının kapsamı ve başvuru koşulları açıklanmıştır.')
+        self.result = CoverQuestion(question='Burslarda daha çok öğrenci mi, daha yüksek destek mi?', what_happened='Kurum, yeni burs programı için başvuruları açtı.', question_bridge='Öğrencilerin desteğe erişimi açısından:', balanced_tradeoff=True, tradeoff_basis='Sınırlı desteğin kapsamı ile kişi başına miktarı arasındaki tercih.', source_urls=['https://official.invalid/burs'], evidence_basis='Burs başvurularının kapsamı ve başvuru koşulları açıklanmıştır.')
 
     def test_format_and_sources(self):
         self.assertTrue(valid_cover_question(self.result.question))
         for text in ['Şok karar herkesi nasıl etkileyecek?', 'Sence?', 'Ne oldu? Kim yaptı?', '<b>Bu karar</b> neyi değiştirecek?', 'Bu karar neyi değiştirecek!']:
             self.assertFalse(valid_cover_question(text))
-        self.assertEqual(cover_patch(self.result, self.research)['cover_question_revision'], 1)
+        self.assertEqual(cover_patch(self.result, self.research)['cover_question_revision'], 2)
         with self.assertRaises(ValueError):
             cover_patch(self.result, {'evidence': []})
 

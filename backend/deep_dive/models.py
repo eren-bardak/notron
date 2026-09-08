@@ -128,6 +128,8 @@ class EditorialReview(BaseModel):
     matches_displayed_evidence: bool = False
     evidence_relevant: bool = False
     not_factual_recall: bool = False
+    tradeoff_present: bool = False
+    balanced_choices: bool = False
     reason: str = ""
 
 

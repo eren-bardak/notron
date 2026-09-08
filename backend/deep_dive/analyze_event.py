@@ -13,7 +13,7 @@ class ReviewedQuestions(EditorialReview):
     binary_questions: list[BinaryQuestion] = Field(min_length=1, max_length=1)
 
 
-def review_questions(client, model, research, questions, charts=None, analysis=None):
+def review_questions(client, model, research, questions, charts=None, analysis=None, feedback=""):
     """Check the one data question and its visible answers against research."""
     instructions = """
 You are a meticulous Turkish question editor. Review ONE event question using
@@ -51,14 +51,26 @@ ONLY the supplied research and selected first chart. Treat supplied text as
  it with a weak link or generic wording. Explain the concrete reason briefly.
 Return exactly one q1 question with question_type="metric".
 
-Ask a short, clear interpretation of one exact supplied numeric finding,
-comparison or trend. No emotional reaction, priority choice, policy preference,
-open-ended normative prompt or additional cross-group question. Do not ask people
+Ask ONE short, evidence-based TRADE-OFF question tied to the displayed finding.
+The question itself must name two competing, defensible goals or approaches.
+Normative choices and policy preferences ARE allowed when clearly asked as a
+preference rather than as a prediction or a disputed fact. A tension can concern
+speed versus wider agreement, broader access versus depth of support, or focused
+action versus wider coverage, but it must belong to THIS event. Both options must
+have an understandable benefit and cost; use parallel, equally respectful wording.
+Do not assume the goals cannot coexist: ask which should weigh more in the stated
+choice. Do not force polarization or predict any identity group's answer.
+No emotional reaction or additional cross-group question. Do not ask people
 to guess facts, assert an unsupported outcome or perform unnecessary arithmetic.
 For a time-series first chart, PREFER a forward-looking, conditional question
 about this event: if the observed trend continues, what could it imply for the
 named project, decision or affected people? Do not merely ask about the past.
-Use distinct plausible interpretations and an uncertainty option. The wording
+Use TWO defensible approaches and an uncertainty/context-dependent option. Set
+tradeoff_present and balanced_choices true only if this tension is meaningful
+and neither answer is presented as morally or factually superior. Reject a
+consensus question such as whether safety, fairness or better services are good.
+If evidence cannot support a real tension, fail review instead of inventing one.
+Classify a normative trade-off as event_implication. The wording
 must signal possibility, not certainty; do not add projected numbers, a guessed
 date, a causal claim or a promise. If evidence cannot inform the future at all,
 ask what limits this event-specific outlook rather than pretending it can.
@@ -83,7 +95,7 @@ define their meaning. No emotional labels such as "Umut verdi" or "Kaygı verdi"
 """
     selected = [chart.model_dump(mode="json") if hasattr(chart, "model_dump") else chart for chart in (charts or [])]
     result = client.responses.parse(model=model, reasoning={"effort":"high"}, input=[
-        {"role":"system", "content":instructions},
+        {"role":"system", "content":instructions + ("\nRepair the previous rejection: " + feedback if feedback else "")},
         {"role":"user", "content": research.model_dump_json()},
         {"role":"user", "content": json.dumps({"first_chart": selected[:1], "supporting_charts": selected[1:], "questions": [q.model_dump(mode="json") for q in ReviewedQuestions(binary_questions=questions).binary_questions]}, ensure_ascii=False)},
     ], text_format=ReviewedQuestions).output_parsed
@@ -95,6 +107,8 @@ define their meaning. No emotional labels such as "Umut verdi" or "Kaygı verdi"
         raise ValueError("Question only describes numbers; ask about the specific event’s implications: " + result.reason)
     if not all((result.event_specific, result.matches_displayed_evidence, result.evidence_relevant, result.not_factual_recall)):
         raise ValueError("Editorial review rejected this evidence/question: " + result.reason)
+    if not result.tradeoff_present or not result.balanced_choices:
+        raise ValueError("A balanced, event-specific trade-off is required: " + result.reason)
     question = result.binary_questions[0]
     if not question.data_anchor.strip():
         raise ValueError("The data question needs its evidence anchor")
@@ -147,7 +161,10 @@ The output must contain:
    implications for future municipal decisions; a generic budget chart fails.
    Set editorial_review=null; independent editorial review will assess it.
    Use one supplied numeric finding,
-   comparison or trend. No reaction, priority, normative or cross-group question.
+   comparison or trend. The ONE question must pose a real trade-off between two
+   defensible goals or approaches informed by the evidence. Normative preferences
+   are allowed; do not portray them as facts or manufacture a false dilemma.
+   No additional reaction, priority ranking or cross-group question.
    When the first display is a time series, favor a question about the future of
    THIS event under continuation of the observed pattern. Make the premise
    explicit and the uncertainty visible. Keep the chart factual: no invented
@@ -195,10 +212,12 @@ Question rules:
   limitation in a nonempty data_anchor (max 180 characters).
 - The anchor and question must use numeric_series or metric_candidates only.
   No invented target, arbitrary benchmark or unsupported causal implication.
-- Offer three concise, neutral interpretations which directly answer the
-  question, including an uncertainty option when evidence is inconclusive.
-  No emotional reactions, rankings, priorities or questions about what ought
-  to happen. Do not include an additional free-text or cross-group question.
+- Offer TWO equally respectful approaches with plausible gains and costs, plus
+  an uncertainty/context-dependent option. Make the competing goals visible in
+  the question itself. A preference about what should weigh more is allowed.
+  Do not ask everyone to endorse an obviously good outcome. Do not invent costs,
+  imply that both goals cannot coexist, or aim for a predetermined answer split.
+  No emotional reactions, extra rankings, free-text or cross-group questions.
 - choice_labels has internal slots yes/no/unsure; these are storage keys, NOT
   required meanings. Each visible Turkish label is at most 24 characters.
 - State what each answer means without stereotyping any identity group.

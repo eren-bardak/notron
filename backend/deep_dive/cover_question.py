@@ -9,6 +9,8 @@ class CoverQuestion(BaseModel):
     question: str = Field(min_length=18, max_length=90)
     what_happened: str = Field(min_length=30, max_length=320)
     question_bridge: str = Field(min_length=5, max_length=100)
+    balanced_tradeoff: bool
+    tradeoff_basis: str = Field(min_length=10, max_length=240)
     source_urls: list[str] = Field(min_length=1, max_length=3)
     evidence_basis: str = Field(min_length=10, max_length=350)
 
@@ -32,11 +34,12 @@ def research_urls(research):
 
 def cover_patch(result, research):
     """Never accept a decorative question without at least one supplied source."""
-    if (not valid_cover_question(result.question) or not result.source_urls
+    if (not result.balanced_tradeoff or not valid_cover_question(result.question) or not result.source_urls
             or not set(result.source_urls).issubset(research_urls(research))):
         raise ValueError("Cover question is malformed or cites an unsupplied source")
     return {"cover_question": result.question.strip(), "cover_question_source_urls": result.source_urls,
-            "cover_question_evidence": result.evidence_basis, "cover_question_revision": 1,
+            "cover_question_evidence": result.evidence_basis, "cover_question_revision": 2,
+            "cover_tradeoff": True, "cover_tradeoff_basis": result.tradeoff_basis,
             "card_summary": result.what_happened.strip(), "card_question_bridge": result.question_bridge.strip(),
             "card_story_revision": 1}
 
@@ -67,6 +70,16 @@ write the summary and bridge around its evidenced premise. Do not revise it.
 Use 4–12 everyday words, at most 90 characters, and one terminal question mark.
 Name the concrete subject of this event. Ask about one unresolved implication,
 interpretation, comparison or tradeoff that the article's evidence can illuminate.
+The question MUST now express a real trade-off between TWO defensible goals or
+approaches relevant to this exact occurrence. Make the tension visible in the
+question, not just in hidden metadata. For example speed versus broader agreement,
+access versus sustainable cost, or precaution versus disruption, only when the
+event supports that tension. Normative questions about choices ARE allowed.
+Both sides must have a plausible benefit and a cost; neither should be an obvious
+villain. Do not invent a dilemma or unsupported consequence to manufacture a split.
+Do not promise that answers will differ, target an identity, or ask whether a
+settled fact is true. State the evidenced tension in tradeoff_basis and set
+balanced_tradeoff=true only when both positions are reasonably defensible.
 Avoid generic 'Ne düşünüyorsun?' or 'Bu gelişme ne anlama geliyor?' when a precise
 subject is available. The question is a cover, not a survey or a command.
 
@@ -109,7 +122,7 @@ def refresh_cover_questions(db, client, model, event_ids, max_reviews=20):
     for row in rows:
         analysis = row.get("analysis") or {}
         research = row.get("research") or {}
-        if (analysis.get("cover_question_revision") == 1
+        if (analysis.get("cover_question_revision") == 2 and analysis.get("cover_tradeoff") is True
                 and valid_cover_question(analysis.get("cover_question"))
                 and analysis.get("card_story_revision") == 1
                 and analysis.get("card_summary") and analysis.get("card_question_bridge")):
@@ -118,7 +131,7 @@ def refresh_cover_questions(db, client, model, event_ids, max_reviews=20):
             continue
         attempted += 1
         try:
-            existing = analysis.get("cover_question")
+            existing = analysis.get("cover_question") if analysis.get("cover_question_revision") == 2 and analysis.get("cover_tradeoff") is True else None
             patch = generate_cover_question(client, model, research, existing if valid_cover_question(existing) else None)
             # Replace only the cover fields. Preserve ballot IDs, charts and image selection.
             write = db.table("event_analyses").update({"analysis": {**analysis, **patch}}).eq("event_id", row["event_id"]).eq("status", "ready")

@@ -69,7 +69,7 @@ def main() -> None:
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     stored_by_id = {int(row["event_id"]): row for row in stored}
     # Reuse only analyses reviewed under the current editorial policy. Old ballot rows remain stored.
-    ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and current_editorial(row.get("analysis")) and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") in (2, 3)}
+    ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and current_editorial(row.get("analysis")) and (row["analysis"].get("editorial_review") or {}).get("tradeoff_present") is True and (row["analysis"].get("editorial_review") or {}).get("balanced_choices") is True and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") in (2, 3)}
     pending = eligible if args.force else [event for event in eligible if not event.get("enough_data") or not valid_numeric_data(event.get("numeric_data")) or int(event["id"]) not in ready]
     pending.sort(key=lambda event: (int(event["id"]) != args.prioritize_event, not event.get("is_visible", False)))
     failures = 0

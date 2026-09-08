@@ -25,9 +25,9 @@ def curate_known_event(research, analysis):
         )]
         analysis.binary_questions = [BinaryQuestion(
             id="q1", question_type="metric",
-            question="Bu oy dengesi Üsküdar’da karar almayı nasıl etkileyebilir?",
+            question="Üsküdar’da hangisi ağır basmalı: hızlı karar mı, geniş uzlaşma mı?",
             data_anchor="Son turda Gültekin 23, Çetinkaya 19 oy aldı. Tek oylama, sonraki kararlarda aynı desteğin süreceğini kanıtlamaz.",
-            choice_labels={"yes": "Uzlaşmayı teşvik eder", "no": "Kararları zorlaştırır", "unsure": "Tek oylama yetmez"},
-            why_it_matters="Oy dengesinin yönetimin karar almasına olası etkisini tartışmak için.",
+            choice_labels={"yes": "Hızlı karar almak", "no": "Geniş uzlaşma aramak", "unsure": "Karara göre değişir"},
+            why_it_matters="Karar hızı ile daha geniş katılım arasındaki tercihi tartmak için.",
         )]
         return
