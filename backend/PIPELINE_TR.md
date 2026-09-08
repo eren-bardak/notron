@@ -30,14 +30,21 @@ veriye sahip, en az iki güncel kaynağı bulunan olayları görünür yapar. So
 Güncel puanı en az 5 olan uygun olayların ilk 3'ü Gündem'de, diğerleri hemen
 sonrasındaki Diğer Haberler sekmesinde gösterilir.
 
-Veri güncelliği şartı: en az bir zaman serisi ve ekranda gösterilen en az bir
-zaman grafiği bulunmalı. Her zaman serisi/grafiği, içinde bulunulan UTC takvim
-yılından bir önceki yıla ait kaynaklı, gerçek sayısal gözlem içermeli (2026'da
-2025, 2027'de 2026). Kaynağın yayın tarihi, metindeki yıl, tahmin/projeksiyon veya
-eksik değer bu şartı sağlamaz. Şartı geçmeyen yeni ve mevcut güncel olaylar
-`enough_data=false` (0), `is_visible=false` ve `status=insufficient_data` olarak
-işaretlenir. Yeni veri uydurulmaz; sonraki araştırma geçerli veri bulursa olay
-yeniden değerlendirilir. Yalnızca kayıtlı veriyi kontrol etmek için:
+Veri seçimi önce haberin somut sorusuyla başlar: bu olayın hangi iddiasını,
+kararını, kapasitesini veya sonucunu anlamak istiyoruz? Araştırma yalnız bu
+soruyu değerlendirmeye yarayan kaynaklı ölçümleri toplar. Tek bir ölçüm, oran,
+aynı dönemde karşılaştırma veya dağılım yeterli olabilir; zaman serisi zorunlu
+değildir. Soru haberin aktörüne, yerine, kararına ya da iddiasına özel yazılır.
+Son soru incelemesi yalnız ilk ekranda gösterilen veriyle eşleşen soruyu kabul eder.
+
+Zaman serisi kullanılırsa her seri/grafikte önceki UTC takvim yılına ait gerçek
+gözlem bulunması gerekir (2026'da 2025). Karşılaştırmalara ve tekil ölçümlere bu
+şart uygulanmaz. Kaynağın yayın tarihi, tahmin veya metindeki yıl gözlem sayılmaz.
+Gösterilen tüm değerler, etiketler, gruplar ve birimler araştırmadaki kaynakla
+eşleşmelidir. Yetersiz veya kaynakla eşleşmeyen veri `enough_data=false` (0),
+`is_visible=false`, `status=insufficient_data` olarak işaretlenir. Veri uydurulmaz.
+Mevcut geçerli sorular normal yenilemede korunur; yanıt kimlikleri değiştirilmez.
+Yalnızca kayıtlı veriyi kontrol etmek için:
 
 ```bash
 python3 backend/generate_event_deep_dives.py --validate-only
@@ -67,3 +74,8 @@ Gerçek katkıları doğrulanmış hesabınla yayınla. Writer yorumları Writer
 Web dosyalarını mevcut projenin üzerine koy; `backend/.env`, iOS URL Scheme ve
 yerel Capacitor ayarlarını değiştirme. Supabase şemasının önceki Nötron
 migrasyonlarını içermesi gerekir. Bu paket uzak veritabanında SQL çalıştırmaz.
+
+Zaman serisi seçilirse soru, gözlenen eğilimin sürmesi halinde bu habere konu
+olan karar, proje veya kişiler için ne anlama gelebileceğine odaklanır. Gelecek
+kesinmiş gibi sunulmaz; grafiğe uydurma tahmin değeri eklenmez. Veri yetersizliği
+geçerli bir yanıt seçeneğidir.

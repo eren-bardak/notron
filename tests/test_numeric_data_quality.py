@@ -59,7 +59,7 @@ class NumericDataQualityTests(unittest.TestCase):
         malformed["points"][1]["group"] = []
         self.assertFalse(valid_numeric_data([malformed], NOW))
 
-    def test_categories_or_malformed_data_cannot_replace_a_timeline(self):
+    def test_categories_need_no_timeline_but_malformed_evidence_is_rejected(self):
         for value in (None, {}, "2025", [None], [{"points": {}}], [series(("A", "B"))]):
             self.assertFalse(valid_numeric_data(value, NOW))
         inferred = series()
@@ -67,6 +67,7 @@ class NumericDataQualityTests(unittest.TestCase):
         self.assertTrue(valid_numeric_data([inferred], NOW))
         category = {"source_url": "https://example.org/categories", "ordered": False,
                     "points": [{"label": "A", "value": 1}, {"label": "B", "value": 2}]}
+        self.assertTrue(valid_numeric_data([category], NOW))
         self.assertTrue(valid_numeric_data([series(), category], NOW))
 
     def test_displayed_chart_must_retain_the_exact_sourced_baseline(self):
@@ -84,6 +85,35 @@ class NumericDataQualityTests(unittest.TestCase):
         additional_bad_chart = copy.deepcopy(display)
         additional_bad_chart["charts"].append({**display["charts"][0], "points": series(("2022", "2023"))["points"]})
         self.assertFalse(valid_analysis_timeline(additional_bad_chart, [data], NOW))
+
+    def test_single_values_and_categories_match_all_source_values_and_units(self):
+        for points in ([{"label": "Proje kapasitesi", "value": 0}],
+                       [{"label": "A", "value": 35}, {"label": "B", "value": 65}]):
+            data = {"unit": "%", "ordered": False, "source_url": "https://example.org/current", "points": points}
+            chart = {"chart_type": "metric" if len(points) == 1 else "bars", "unit": "%",
+                     "source_urls": [data["source_url"]], "points": points}
+            self.assertTrue(valid_numeric_data([data], NOW))
+            self.assertTrue(valid_analysis_timeline({"charts": [chart]}, [data], NOW))
+            for patch in ({"value": 999}, {"group": "invented"}, {"is_forecast": True}, {"value": None}):
+                bad = copy.deepcopy(chart)
+                bad["points"][0].update(patch)
+                self.assertFalse(valid_analysis_timeline({"charts": [bad]}, [data], NOW))
+            self.assertFalse(valid_analysis_timeline({"charts": [{**chart, "unit": "adet"}]}, [data], NOW))
+            self.assertFalse(valid_numeric_data([{**data, "points": [{**points[0], "is_forecast": True}]}], NOW))
+        data = series()
+        display = analysis(data)
+        display["charts"][0]["points"][0]["value"] = 999  # Even non-baseline points must match.
+        self.assertFalse(valid_analysis_timeline(display, [data], NOW))
+
+    def test_single_dated_value_is_not_a_trend_and_unrelated_scopes_cannot_mix(self):
+        point = {"label": "2026", "value": 0.00042}
+        data = {"ordered": False, "comparison_axis": "Yıl", "source_url": "https://example.org/data", "points": [point]}
+        chart = {"chart_type": "metric", "x_label": "Yıl", "source_urls": [data["source_url"]], "points": [point]}
+        self.assertTrue(valid_analysis_timeline({"charts": [chart]}, [data], NOW))
+        first = {**data, "comparison_axis": "Şehir", "points": [{"label": "A", "value": 10}, {"label": "B", "value": 20}]}
+        second = {**first, "points": [{"label": "A", "value": 20}, {"label": "B", "value": 30}]}
+        mixed = {**chart, "chart_type": "bars", "x_label": "Şehir", "points": [first["points"][0], second["points"][1]]}
+        self.assertFalse(valid_analysis_timeline({"charts": [mixed]}, [first, second], NOW))
 
     def test_cached_ready_event_is_demoted_before_research_and_cannot_publish(self):
         class DB:

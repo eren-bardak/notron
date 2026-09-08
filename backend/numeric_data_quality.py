@@ -1,7 +1,6 @@
-"""Require a sourced, observed previous-calendar-year baseline before publication.
+"""Validate sourced event evidence; prior-year data is required only for timelines.
 
-Dates are read only from numeric point labels. A publication date, prose mention,
-projection, missing value or categorical comparison cannot supply the baseline.
+Keep behavior in sync with app/lib/numeric-data-quality.ts.
 """
 import math
 import re
@@ -56,12 +55,16 @@ def finite_point(point):
         return False
 
 
-def observed_point(point):
+def observed_value(point):
     return (finite_point(point) and point.get("is_projection") is not True
             and point.get("is_forecast") is not True
             and point.get("observation_type", "observed") == "observed"
             and (point.get("group") is None or isinstance(point["group"], str))
-            and point_year(point.get("label")) is not None)
+            and isinstance(point.get("label"), str) and bool(point["label"].strip()))
+
+
+def observed_point(point):
+    return observed_value(point) and point_year(point.get("label")) is not None
 
 
 def source_url(value):
@@ -80,6 +83,9 @@ def temporal_series(item):
         return False
     if item.get("ordered") is True or item.get("chart_type") == "line":
         return True
+    points = item.get("points")
+    if isinstance(points, list) and len(points) == 1:
+        return False
     axis = item.get("comparison_axis")
     if axis is None:
         axis = item.get("x_label", "")
@@ -98,37 +104,50 @@ def _valid_timeline(item, year):
     return len(observed) >= 2 and any(point_year(p["label"]) == year for p in observed)
 
 
+def _valid_evidence(item, year):
+    if not isinstance(item, dict) or item.get("is_projection") is True or item.get("is_forecast") is True:
+        return False
+    points = item.get("points")
+    if not isinstance(points, list) or not points or not all(observed_value(p) for p in points):
+        return False
+    if temporal_series(item):
+        return all(observed_point(p) for p in points) and _valid_timeline(item, year)
+    return item.get("chart_type") != "metric" or len(points) == 1
+
+
 def valid_numeric_data(series, now=None):
-    """Every chronological research series must contain last year's actual data."""
-    if not isinstance(series, list):
+    """Accept event-relevant measurements and comparisons without forcing a trend."""
+    if not isinstance(series, list) or not series:
         return False
     year = (now or datetime.now(timezone.utc)).year - 1
-    timelines = [item for item in series if temporal_series(item)]
-    return bool(timelines) and all(source_url(item.get("source_url")) and _valid_timeline(item, year)
-                                   for item in timelines)
+    return all(isinstance(item, dict) and source_url(item.get("source_url"))
+               and _valid_evidence(item, year) for item in series)
 
 
 def valid_analysis_timeline(analysis, series, now=None):
-    """The displayed timeline must retain a previous-year point from its source."""
+    """Historical API name: validate ALL displayed evidence against source values."""
     if not valid_numeric_data(series, now) or not isinstance(analysis, dict):
         return False
     charts = analysis.get("charts")
-    if not isinstance(charts, list):
+    if not isinstance(charts, list) or not charts:
         return False
     year = (now or datetime.now(timezone.utc)).year - 1
-    timelines = [chart for chart in charts if temporal_series(chart)]
-    if not timelines:
-        return False
-    for chart in timelines:
-        urls = chart.get("source_urls")
-        if not isinstance(urls, list) or not _valid_timeline(chart, year):
+    for chart in charts:
+        if not _valid_evidence(chart, year):
             return False
-        research_points = {
-            (p["label"].strip(), p["value"], p.get("group") or "")
-            for item in series if temporal_series(item) and item.get("source_url") in urls
-            for p in item["points"] if observed_point(p) and point_year(p["label"]) == year
-        }
-        if not any((p["label"].strip(), p["value"], p.get("group") or "") in research_points
-                   for p in chart["points"] if observed_point(p) and point_year(p["label"]) == year):
+        urls = chart.get("source_urls")
+        if not isinstance(urls, list) or not urls or not all(source_url(url) for url in urls):
+            return False
+        displayed = [(p["label"].strip(), p["value"], p.get("group") or "") for p in chart["points"]]
+        # One coherent series: the same URL/unit alone cannot establish compatible scope.
+        matched = False
+        for item in series:
+            if item.get("source_url") not in urls or (item.get("unit") or "") != (chart.get("unit") or ""):
+                continue
+            source_points = {(p["label"].strip(), p["value"], p.get("group") or "") for p in item["points"]}
+            if all(point in source_points for point in displayed):
+                matched = True
+                break
+        if not matched:
             return False
     return True

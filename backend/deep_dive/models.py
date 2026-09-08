@@ -14,8 +14,11 @@ class Evidence(BaseModel):
 
 class NumericPoint(BaseModel):
     label: str
-    value: float
+    value: float = Field(strict=True, allow_inf_nan=False)
     group: str
+    is_forecast: bool = False
+    is_projection: bool = False
+    observation_type: Literal["observed", "forecast", "projection", "target"] = "observed"
 
 
 class NumericSeries(BaseModel):
@@ -24,15 +27,16 @@ class NumericSeries(BaseModel):
     comparison_axis: str
     ordered: bool
     part_of_whole: bool
-    points: list[NumericPoint] = Field(min_length=2, max_length=60)
+    points: list[NumericPoint] = Field(min_length=1, max_length=60)
     source_name: str
     source_url: str
     methodology_note: str
+    event_connection: str = ""
 
 
 class KeyMetric(BaseModel):
     label: str
-    value: float
+    value: float = Field(strict=True, allow_inf_nan=False)
     unit: str
     time_scope: str
     geography: str
@@ -48,6 +52,7 @@ class KeyMetric(BaseModel):
 class ResearchBundle(BaseModel):
     event_id: int
     event_title: str
+    reader_question: str = ""
     problem_supported: bool
     central_problem: str
     problem_evidence: list[str] = Field(max_length=8)
@@ -61,6 +66,7 @@ class ResearchBundle(BaseModel):
 
 class Chart(BaseModel):
     chart_type: Literal[
+        "metric",
         "bars",
         "line",
         "donut",
@@ -71,7 +77,7 @@ class Chart(BaseModel):
     unit: str
     x_label: str
     y_label: str
-    points: list[NumericPoint] = Field(min_length=2, max_length=24)
+    points: list[NumericPoint] = Field(min_length=1, max_length=24)
     insight: str
     source_urls: list[str]
 
@@ -93,8 +99,8 @@ class HiddenPattern(BaseModel):
 class DataStory(BaseModel):
     headline: str
     baseline: str
-    key_metrics: list[KeyMetric] = Field(min_length=4, max_length=12)
-    hidden_patterns: list[HiddenPattern] = Field(min_length=1, max_length=5)
+    key_metrics: list[KeyMetric] = Field(min_length=1, max_length=12)
+    hidden_patterns: list[HiddenPattern] = Field(min_length=0, max_length=5)
     what_to_watch_next: list[str] = Field(min_length=1, max_length=5)
     limitations: list[str] = Field(min_length=1, max_length=6)
 

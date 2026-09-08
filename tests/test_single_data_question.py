@@ -12,7 +12,7 @@ from pydantic import ValidationError
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 import generate_event_deep_dives as pipeline
 from deep_dive.analyze_event import ReviewedQuestions, review_questions
-from deep_dive.models import BinaryQuestion, EventAnalysis, ResearchBundle
+from deep_dive.models import BinaryQuestion, EventAnalysis, ResearchBundle, NumericSeries, Chart, DataStory
 from pipeline_visibility import valid_questions
 from popularity import question_ids
 
@@ -37,7 +37,7 @@ def research():
 class SingleQuestionTests(unittest.TestCase):
     def test_generation_schema_has_one_metric_and_no_additional_prompts(self):
         question = BinaryQuestion.model_validate(QUESTION)
-        self.assertEqual(ReviewedQuestions(binary_questions=[question]).binary_questions, [question])
+        self.assertEqual(ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True).binary_questions, [question])
         for questions in ([], [question, question]):
             with self.assertRaises(ValidationError):
                 ReviewedQuestions(binary_questions=questions)
@@ -53,7 +53,7 @@ class SingleQuestionTests(unittest.TestCase):
     def test_review_accepts_one_data_question_and_rejects_empty_or_duplicate_answers(self):
         question = BinaryQuestion.model_validate(QUESTION)
         client = Mock()
-        reviewed = ReviewedQuestions(binary_questions=[question])
+        reviewed = ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True)
         client.responses.parse.return_value = SimpleNamespace(output_parsed=reviewed)
         self.assertEqual(review_questions(client, "test-model", research(), [question]), [question])
         with self.assertRaises(ValidationError):
@@ -64,9 +64,42 @@ class SingleQuestionTests(unittest.TestCase):
         ):
             bad = BinaryQuestion.model_validate({**QUESTION, **changes})
             client.responses.parse.return_value = SimpleNamespace(
-                output_parsed=ReviewedQuestions(binary_questions=[bad]))
+                output_parsed=ReviewedQuestions(binary_questions=[bad], event_specific=True, matches_displayed_evidence=True))
             with self.assertRaises(ValueError):
                 review_questions(client, "test-model", research(), [question])
+
+    def test_review_is_bound_to_first_display_and_rejects_generic_or_unrelated_question(self):
+        question = BinaryQuestion.model_validate(QUESTION)
+        client = Mock()
+        chart = {"chart_type": "metric", "title": "Proje kapasitesi", "unit": "kişi", "points": [{"label": "Kapasite", "value": 120}]}
+        client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(
+            binary_questions=[question], event_specific=True, matches_displayed_evidence=True))
+        review_questions(client, "test-model", research(), [question], [chart])
+        prompt = client.responses.parse.call_args.kwargs["input"]
+        import json
+        self.assertEqual(json.loads(prompt[-1]["content"])["first_chart"], [chart])
+        for flags in ({"event_specific": False, "matches_displayed_evidence": True},
+                      {"event_specific": True, "matches_displayed_evidence": False}):
+            client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(binary_questions=[question], **flags))
+            with self.assertRaises(ValueError):
+                review_questions(client, "test-model", research(), [question], [chart])
+
+    def test_one_point_schema_keeps_observation_flags_and_rejects_coercion(self):
+        from numeric_data_quality import valid_numeric_data
+        data = {"name": "Proje kapasitesi", "unit": "kişi", "comparison_axis": "Proje", "ordered": False,
+                "part_of_whole": False, "source_name": "Kurum", "source_url": "https://example.org/project",
+                "methodology_note": "Açıklanan kapasite.", "points": [{"label": "Kapasite", "value": 120, "group": ""}]}
+        self.assertTrue(valid_numeric_data([NumericSeries.model_validate(data).model_dump()]))
+        forecast = copy.deepcopy(data)
+        forecast["points"][0]["is_forecast"] = True
+        self.assertFalse(valid_numeric_data([NumericSeries.model_validate(forecast).model_dump()]))
+        for value in (True, "120", float("nan")):
+            bad = copy.deepcopy(data)
+            bad["points"][0]["value"] = value
+            with self.assertRaises(ValidationError):
+                NumericSeries.model_validate(bad)
+        Chart.model_validate({"chart_type": "metric", "title": "Kapasite", "unit": "kişi", "x_label": "Proje", "y_label": "Kişi",
+                              "points": data["points"], "insight": "Kapasite tek başına talebi göstermez.", "source_urls": [data["source_url"]]})
 
     def test_gate_accepts_single_and_legacy_metric_without_reindexing(self):
         legacy = {"binary_questions": [

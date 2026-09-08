@@ -27,6 +27,16 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(ready_event_ids(events, analyses, now), [1,8,9,10])
         self.assertEqual(ready_event_ids(events, analyses, now, limit=2), [1,8])
 
+    def test_event_with_sourced_comparison_can_publish_without_time_series(self):
+        now = datetime(2026, 9, 8, tzinfo=timezone.utc)
+        points = [{"label": "Proje kapasitesi", "value": 120}, {"label": "Başvuru", "value": 400}]
+        data = {"ordered": False, "source_url": "https://example.org/project", "unit": "kişi", "points": points}
+        event = {"id": 20, "created_at": now.isoformat(), "enough_data": True, "source_count": 2,
+                 "numeric_data": [data], "popularity_score": 100, "popularity_updated_at": now.isoformat()}
+        analysis = {"binary_questions": [{"question": "Bu projenin kapasitesi başvuruyu karşılıyor mu?", "question_type": "metric", "data_anchor": "120 kişilik kapasite; 400 başvuru."}],
+                    "charts": [{"chart_type": "bars", "unit": "kişi", "source_urls": [data["source_url"]], "points": points}]}
+        self.assertEqual(ready_event_ids([event], [{"event_id": 20, "status": "ready", "analysis": analysis}], now), [20])
+
 
 if __name__ == "__main__":
     unittest.main()

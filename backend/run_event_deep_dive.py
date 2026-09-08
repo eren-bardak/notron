@@ -36,7 +36,7 @@ def main() -> None:
                 "central_problem": research.central_problem,
             }
         ).eq("id", args.event_id).execute()
-        reason = "missing observed previous-calendar-year baseline"
+        reason = "no valid sourced event evidence; check timeline baselines when applicable"
         print(f"Deep dive skipped | event={args.event_id} | {reason}")
         return
     analysis = analyze_event(client, model, research)

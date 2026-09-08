@@ -66,4 +66,4 @@ def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis) -> None
         }
     ).eq("id", analysis.event_id).execute()
     if not enough_data:
-        raise ValueError("Analysis lacks a sourced, observed previous-calendar-year timeline baseline; enough_data=0 and is_visible=false.")
+        raise ValueError("Analysis lacks source-matched event evidence or a required timeline baseline; enough_data=0 and is_visible=false.")

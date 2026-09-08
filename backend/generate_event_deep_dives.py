@@ -35,7 +35,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--validate-only", action="store_true",
-        help="Apply the previous-calendar-year data gate to saved events without research or OpenAI calls.",
+        help="Apply the sourced event-evidence gate to saved events without research or OpenAI calls.",
     )
     args = parser.parse_args()
 
@@ -111,7 +111,7 @@ def main() -> None:
                     },
                     on_conflict="event_id",
                 ).execute()
-                reason = f"missing observed {datetime.now(timezone.utc).year - 1} baseline in every time series"
+                reason = f"no valid sourced event evidence (timelines require observed {datetime.now(timezone.utc).year - 1} data)"
                 print(f"Deep dive skipped | event={event_id} | {reason}")
                 continue
 
@@ -121,7 +121,7 @@ def main() -> None:
                     and valid_analysis_timeline(old_analysis, [series.model_dump(mode="json") for series in research.numeric_series])):
                 # A wording repair needs no second data-story generation or web search.
                 analysis = EventAnalysis.model_validate(old_analysis)
-                analysis.binary_questions = review_questions(client, model, research, analysis.binary_questions)
+                analysis.binary_questions = review_questions(client, model, research, analysis.binary_questions, analysis.charts)
                 analysis.generated_at = datetime.now(timezone.utc).isoformat()
             else:
                 analysis = analyze_event(client, model, research)
