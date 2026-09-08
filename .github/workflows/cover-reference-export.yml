@@ -1,0 +1,38 @@
+name: Nötron public cover reference export
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/export_cover_references.py'
+      - '.github/workflows/cover-reference-export.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements.txt
+      - name: Export current public publisher photos
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scripts/export_cover_references.py
+      - name: Upload bounded editorial references
+        uses: actions/upload-artifact@v4
+        with:
+          name: cover-references
+          path: cover-references/
+          retention-days: 1
+          if-no-files-found: error
