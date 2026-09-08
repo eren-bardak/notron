@@ -8,4 +8,4 @@ def current_editorial(analysis):
     return (isinstance(review, dict) and review.get("revision") == EDITORIAL_REVISION
             and all(review.get(key) is True for key in (
                 "event_specific", "matches_displayed_evidence", "evidence_relevant", "not_factual_recall"))
-            and review.get("question_intent") in {"event_implication", "conditional_outlook"})
+            and review.get("question_intent") in ("event_implication", "conditional_outlook"))

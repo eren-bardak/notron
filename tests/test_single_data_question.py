@@ -80,7 +80,7 @@ class SingleQuestionTests(unittest.TestCase):
         self.assertEqual(json.loads(prompt[-1]["content"])["first_chart"], [chart])
         for flags in ({"event_specific": False}, {"matches_displayed_evidence": False},
                       {"evidence_relevant": False}, {"not_factual_recall": False}):
-            client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(binary_questions=[question], **({"event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True} | flags)))
+            client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(binary_questions=[question], **({"question_intent": "event_implication", "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True} | flags)))
             with self.assertRaises(ValueError):
                 review_questions(client, "test-model", research(), [question], [chart])
 

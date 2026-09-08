@@ -16,6 +16,8 @@ class EditorialQualityTests(unittest.TestCase):
             self.assertFalse(current_editorial(old))
         for key in ("event_specific", "matches_displayed_evidence", "evidence_relevant", "not_factual_recall"):
             self.assertFalse(current_editorial({"editorial_review": {**review, key: False}}))
+        for intent in ([], {}, None, "read_off", "numerical_description"):
+            self.assertFalse(current_editorial({"editorial_review": {**review, "question_intent": intent}}))
 
     def test_updated_question_does_not_reuse_old_ballot(self):
         old = {"binary_questions": [{"question": "2025 bütçesi nasıl değişti?", "question_type": "metric",
