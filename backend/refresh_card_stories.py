@@ -8,8 +8,9 @@ from pathlib import Path
 from openai import OpenAI
 from supabase import create_client
 from deep_dive.cover_question import refresh_cover_questions
-from deep_dive.analyze_event import review_questions
+from deep_dive.analyze_event import review_questions, complete_question_text
 from deep_dive.models import EventAnalysis, ResearchBundle
+from deep_dive.editorial_overrides import event_tradeoff
 from pipeline_visibility import ready_event_ids
 from popularity import read_all
 
@@ -21,8 +22,11 @@ def refresh_tradeoffs(db, client, model, ids):
     for row in rows:
         original = row.get("analysis") or {}
         review = original.get("editorial_review") or {}
-        if review.get("tradeoff_present") is True and review.get("balanced_choices") is True:
-            continue
+        preferred = event_tradeoff(row.get("research") or {})
+        if (review.get("tradeoff_present") is True and review.get("balanced_choices") is True
+                and all(complete_question_text(q.get("question")) for q in original.get("binary_questions", []))):
+            if not preferred or all(q.get("question") == preferred for q in original.get("binary_questions", [])):
+                continue
         feedback = ""
         for attempt in range(2):
             try:
@@ -74,7 +78,8 @@ def main():
     Path("card-stories.json").write_text(json.dumps(cards, ensure_ascii=False, indent=2) + "\n")
     missing = [card["event_id"] for card in cards if card["revision"] != 2 or not card["headline"] or not card["summary"] or not card["bridge"]
                or card["cover_revision"] != 2 or card["cover_tradeoff"] is not True
-               or (args.tradeoffs and not ((card.get("review") or {}).get("tradeoff_present") is True and (card.get("review") or {}).get("balanced_choices") is True))]
+               or (args.tradeoffs and not ((card.get("review") or {}).get("tradeoff_present") is True and (card.get("review") or {}).get("balanced_choices") is True
+                   and all(complete_question_text(q.get("question")) for q in card.get("data_question") or [])))]
     print(f"Card copy updated: {len(cards) - len(missing)}/{len(ids)}")
     if missing or len(cards) != len(ids):
         raise RuntimeError(f"Some card stories could not be refreshed: {missing}")

@@ -7,7 +7,7 @@ from openai import OpenAI
 from pydantic import ValidationError
 from supabase import create_client
 
-from deep_dive.analyze_event import analyze_event, review_questions
+from deep_dive.analyze_event import analyze_event, review_questions, complete_question_text
 from deep_dive.research_event import load_event, research_event
 from deep_dive.save_analysis import save_analysis
 from deep_dive.cover_question import refresh_cover_questions
@@ -71,6 +71,10 @@ def main() -> None:
     # Reuse only analyses reviewed under the current editorial policy. Old ballot rows remain stored.
     ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and current_editorial(row.get("analysis")) and (row["analysis"].get("editorial_review") or {}).get("tradeoff_present") is True and (row["analysis"].get("editorial_review") or {}).get("balanced_choices") is True and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") in (2, 3)}
     pending = eligible if args.force else [event for event in eligible if not event.get("enough_data") or not valid_numeric_data(event.get("numeric_data")) or int(event["id"]) not in ready]
+    for event in eligible:
+        old_questions = (stored_by_id.get(int(event["id"]), {}).get("analysis") or {}).get("binary_questions") or []
+        if event not in pending and any(not complete_question_text(q.get("question")) for q in old_questions):
+            pending.append(event)
     pending.sort(key=lambda event: (int(event["id"]) != args.prioritize_event, not event.get("is_visible", False)))
     failures = 0
     # Update existing covers first; missing-data research may take much longer.

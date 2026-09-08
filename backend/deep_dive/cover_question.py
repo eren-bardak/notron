@@ -2,6 +2,7 @@
 import re
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field
+from .editorial_overrides import event_tradeoff
 
 _HYPE = re.compile(r"şok|şoke|inanılmaz|bomba|skandal|gerçek yüz|saklanıyor|gizli gerçek|tıkla|kaçırma|asla inan|herkes bunu", re.I)
 
@@ -130,16 +131,21 @@ def refresh_cover_questions(db, client, model, event_ids, max_reviews=20):
     for row in rows:
         analysis = row.get("analysis") or {}
         research = row.get("research") or {}
+        preferred = event_tradeoff(research)
+        if not preferred and (analysis.get("editorial_review") or {}).get("tradeoff_present") is True:
+            preferred = next((q.get("question") for q in analysis.get("binary_questions", [])
+                              if q.get("question_type") == "metric" and valid_cover_question(q.get("question"))), None)
         if (analysis.get("cover_question_revision") == 2 and analysis.get("cover_tradeoff") is True
                 and valid_cover_question(analysis.get("cover_question"))
                 and analysis.get("card_story_revision") == 2 and analysis.get("card_headline")
+                and (not preferred or analysis.get("cover_question") == preferred)
                 and analysis.get("card_summary") and analysis.get("card_question_bridge")):
             continue
         if not research_urls(research) or attempted >= max_reviews:
             continue
         attempted += 1
         try:
-            existing = analysis.get("cover_question") if analysis.get("cover_question_revision") == 2 and analysis.get("cover_tradeoff") is True else None
+            existing = preferred or (analysis.get("cover_question") if analysis.get("cover_question_revision") == 2 and analysis.get("cover_tradeoff") is True else None)
             patch = generate_cover_question(client, model, research, existing if valid_cover_question(existing) else None)
             # Replace only the cover fields. Preserve ballot IDs, charts and image selection.
             at = datetime.now(timezone.utc).isoformat()
