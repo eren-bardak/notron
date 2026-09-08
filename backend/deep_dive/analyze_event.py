@@ -160,10 +160,15 @@ First identify the concrete question a reader asks about THIS occurrence using
 research.reader_question. Then select the evidence that helps assess it and
 choose its display. Never start from an available chart and invent a generic
 question around it. Write the story fields to explain that exact connection.
-Avoid background facts that do not help interpret the later analysis.
+Background also explains the event in its own right: retain the decisive prior
+decision, its specific reason and attributed counterposition, even when those
+facts are not numeric and do not appear in the chart. Do not replace that causal
+context with a generic introduction to the chart.
 
 The output must contain:
-1. A concise background section of 3 to 4 sentences.
+1. A concise background section of 3 to 6 sentences. Preserve the actual reason
+   an earlier vote/decision was challenged or changed, its exact legal status,
+   and the relevant response. State unknowns instead of silently omitting them.
 2. A concise concrete-event explanation of 2 to 3 sentences.
 3. A data_story with 1 to 6 directly relevant key metrics, evidenced patterns, baselines,
    what to watch next and explicit limitations.

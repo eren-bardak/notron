@@ -11,6 +11,7 @@ from deep_dive.analyze_event import analyze_event, review_questions, complete_qu
 from deep_dive.research_event import load_event, research_event
 from deep_dive.save_analysis import save_analysis
 from deep_dive.cover_question import refresh_cover_questions
+from deep_dive.background_context import refresh_background_contexts
 from deep_dive.models import EventAnalysis, ResearchBundle
 from event_images import refresh_event_covers
 from numeric_data_quality import valid_analysis_timeline
@@ -154,6 +155,9 @@ def main() -> None:
     # Photo review also covers already-ready events and does not alter question IDs.
     refresh_event_covers(db, client, model, ids, max_reviews=MAX_EVENTS_PER_RUN)
     published = publish_ready_events(db)
+    background_failures = refresh_background_contexts(db, client, model, published)
+    if background_failures:
+        print(f"Background context deferred for {background_failures}; current event data retained.")
     if args.prioritize_event is not None and args.prioritize_event not in published:
         raise RuntimeError(f"Requested event {args.prioritize_event} did not finish with a current, publishable editorial review; inspect its evidence and eligibility.")
     try:
