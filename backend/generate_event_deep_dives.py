@@ -7,10 +7,10 @@ from openai import OpenAI
 from pydantic import ValidationError
 from supabase import create_client
 
-from deep_dive.analyze_event import analyze_event
+from deep_dive.analyze_event import analyze_event, review_questions
 from deep_dive.research_event import load_event, research_event
 from deep_dive.save_analysis import save_analysis
-from deep_dive.models import ResearchBundle
+from deep_dive.models import EventAnalysis, ResearchBundle
 from event_images import refresh_event_covers
 from pipeline_visibility import publish_ready_events, valid_questions, valid_numeric_data
 from popularity import POLICY, current_score
@@ -53,7 +53,7 @@ def main() -> None:
     ids = [int(event["id"]) for event in eligible]
     stored = (db.table("event_analyses").select("event_id,status,analysis,research").in_("event_id", ids).execute().data) if ids else []
     stored_by_id = {int(row["event_id"]): row for row in stored}
-    ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2}
+    ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") == 2}
     pending = eligible if args.force else [event for event in eligible if not event.get("enough_data") or not valid_numeric_data(event.get("numeric_data")) or int(event["id"]) not in ready]
     failures = 0
 
@@ -99,7 +99,14 @@ def main() -> None:
                 print(f"Deep dive skipped | event={event_id} | {reason}")
                 continue
 
-            analysis = analyze_event(client, model, research)
+            old_analysis = cached.get("analysis") or {}
+            if not args.force and old_analysis.get("schema_version") == 2 and valid_questions(old_analysis):
+                # A wording repair needs no second data-story generation or web search.
+                analysis = EventAnalysis.model_validate({**old_analysis, "question_revision": 2})
+                analysis.binary_questions = review_questions(client, model, research, analysis.binary_questions)
+                analysis.generated_at = datetime.now(timezone.utc).isoformat()
+            else:
+                analysis = analyze_event(client, model, research)
             if analysis.event_id != event_id:
                 raise ValueError("Analysis returned a different event ID; no analysis was saved.")
             save_analysis(db, research, analysis)

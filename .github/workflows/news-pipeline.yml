@@ -38,14 +38,17 @@ jobs:
       - name: Verify scoring and publication rules
         run: python -m unittest discover -s tests -p 'test_*.py'
       - name: 1 · Fetch RSS news
+        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[editorial-refresh]')
         working-directory: backend
         timeout-minutes: 45
         run: python rss_fetcher.py
       - name: 2 · Cluster and enrich events
+        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[editorial-refresh]')
         working-directory: backend
         timeout-minutes: 30
         run: python clustering_news_enriched.py
       - name: 3 · Update popularity
+        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[editorial-refresh]')
         working-directory: backend
         timeout-minutes: 15
         run: python update_event_popularity_v02.py

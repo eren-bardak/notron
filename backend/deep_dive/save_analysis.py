@@ -10,6 +10,10 @@ def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis) -> None
 
     research_data = research.model_dump(mode="json")
     analysis_data = analysis.model_dump(mode="json")
+    previous = db.table("event_analyses").select("analysis").eq("event_id", analysis.event_id).limit(1).execute().data
+    selected_image = (previous[0].get("analysis") or {}).get("image_selection") if previous else None
+    if selected_image:
+        analysis_data["image_selection"] = selected_image
     base_row = {
         "event_id": analysis.event_id,
         "status": "ready",

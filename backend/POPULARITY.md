@@ -105,6 +105,9 @@ The arrows denote sequence, not shell output redirection. A failed script stops
 the chain. Each script has a timeout; local overlapping runs are blocked on the
 same Mac/Linux host. Prior successful steps are not rolled back after a failure.
 The final stage publishes only complete, qualified analyses.
+Scheduled and manual runs always execute all four stages. A maintenance push
+explicitly marked `[editorial-refresh]` reruns only the final stage against saved
+research; it does not refetch RSS or change the normal six-hour schedule.
 It also refreshes older question layouts from saved research, then reviews real
 source photographs for ready events. Photo review checks actual dimensions
 (minimum 800×450), deduplicates visual variants, and asks a vision model to choose
@@ -113,6 +116,8 @@ preserved. No generated image or artificial upscale is used for real news.
 
 Question format v2 uses two short reactions/priority choices and exactly one
 quantified question. Visible option labels are stored alongside each question.
+An additional semantic edit checks that every option answers the question asked;
+the review revision is recorded separately from the data-story schema version.
 Ballot fingerprints include the wording and all labels; old answers are never
 relabelled as reactions. The internal yes/no/unsure slots remain compatible with
 the existing database, but chart labels always reflect the specific question.

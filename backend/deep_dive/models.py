@@ -116,6 +116,7 @@ class BinaryQuestion(BaseModel):
 
 class EventAnalysis(BaseModel):
     schema_version: Literal[2]
+    question_revision: Literal[2]
     event_id: int
     title: str
     generated_at: str
