@@ -1,0 +1,7 @@
+openai
+pydantic
+python-dotenv
+supabase
+beautifulsoup4
+feedparser
+requests

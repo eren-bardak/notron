@@ -1,0 +1,39 @@
+name: Nötron news pipeline
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'config/popularity.json'
+      - '.github/workflows/news-pipeline.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+      timezone: Europe/Istanbul
+permissions:
+  contents: read
+concurrency:
+  group: notron-production-news
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Validate runner configuration
+        run: python backend/run_pipeline.py --check
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements.txt
+      - name: Refresh news, ranking and analysis
+        run: python backend/run_pipeline.py

@@ -1,0 +1,10 @@
+{
+  "cross_group_points": 20,
+  "article_points": 5,
+  "participation_points": 1,
+  "writer_points": 3,
+  "half_life_hours": 6,
+  "display_threshold": 5,
+  "primary_limit": 3,
+  "event_window_hours": 36
+}

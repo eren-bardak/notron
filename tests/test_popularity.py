@@ -1,0 +1,105 @@
+import sys
+import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
+from popularity import score_event, normalize, question_ids, current_score, read_all
+from pipeline_visibility import ready_event_ids
+
+NOW = datetime(2026, 9, 8, 12, tzinfo=timezone.utc)
+QUESTIONS = {'binary_questions': [{'question': 'Öncelik verilmeli mi?'}, {'question':'Denetlenmeli mi?'}, {'question':'Etkilendin mi?'}]}
+
+def article(i, source, hours=0, **extra):
+    return {'id': i, 'source': source, 'title': f'News {i}', 'url': f'https://example.org/{i}', 'published_at': (NOW-timedelta(hours=hours)).isoformat(), **extra}
+
+def score(news, now=NOW, **extra):
+    return score_event({'id':1}, [{'event_id':1,'news_id':n['id']} for n in news], {n['id']:n for n in news},
+                       {normalize('A'):'left', normalize('B'):'right', normalize('C'):'center'},
+                       extra.get('micro',[]),extra.get('comments',[]),extra.get('answers',[]), QUESTIONS,now)
+
+class ScoreTests(unittest.TestCase):
+    def test_same_snapshot_retries_do_not_inflate_and_six_hours_halves(self):
+        news=[article(1,'A'),article(2,'B')]
+        self.assertEqual(score(news)['score'],30)
+        self.assertEqual(score(news)['score'],score(news)['score'])
+        self.assertEqual(score(news, NOW+timedelta(hours=6))['score'],15)
+        self.assertEqual(score(news, NOW+timedelta(hours=12))['score'],7.5)
+
+    def test_new_activity_does_not_refresh_old_points(self):
+        news=[article(1,'A',6),article(2,'B',6),article(3,'C')]
+        self.assertEqual(score(news)['score'],20)  # previous 30 / 2, plus one new 5
+
+    def test_first_second_group_earns_bonus_once(self):
+        self.assertEqual(score([article(1,'A'),article(2,'A')])['score'],10)
+        self.assertEqual(score([article(1,'A'),article(2,'A'),article(3,'B')])['score'],35)
+        self.assertEqual(score([article(1,'A'),article(2,'B'),article(3,'C')])['score'],35)
+        self.assertEqual(score([article(1,'A'),article(2,'Unknown')])['score'],10)
+
+    def test_duplicate_links_urls_and_titles_do_not_create_points_or_sources(self):
+        original=article(1,'A')
+        repeated=article(2,'B',url=original['url']+'?utm_campaign=copy')
+        repeated_title=article(3,'A',title=original['title'])
+        result=score([original,original,repeated,repeated_title])
+        self.assertEqual(result['score'],5)
+        self.assertEqual(result['source_count'],1)
+
+    def test_bad_and_future_dates_never_earn_points(self):
+        self.assertEqual(score([article(1,'A',-1),article(2,'B',published_at='bad')])['score'],0)
+
+    def test_malformed_analysis_and_ballots_do_not_abort_scoring(self):
+        for analysis in (None, [], {'binary_questions':1}, {'binary_questions':[{'question':None}, {'question':[]}, None]}):
+            self.assertEqual(question_ids(analysis),set())
+        qid=next(iter(question_ids(QUESTIONS)))
+        invalid={'event_id':1,'user_id':'u1','created_at':NOW.isoformat(),'binary_answers':{qid:[]}}
+        self.assertEqual(score([],answers=[invalid])['vote_count'],0)
+
+    def test_real_unique_participation_only_and_edits_keep_original_age(self):
+        base={'event_id':1,'created_at':(NOW-timedelta(hours=6)).isoformat(),'user_id':'u1','status':'active','text':'A thought'}
+        micro=[dict(base,id=1),dict(base,id=2,created_at=NOW.isoformat()),dict(base,id=3,user_id='u2',status='hidden')]
+        comments=[dict(base,id=1,author_role='writer'),dict(base,id=2,author_role='reader',user_id='u3')]
+        qid=next(iter(question_ids(QUESTIONS)))
+        answers=[dict(base,id=1,binary_answers={qid:'yes'},updated_at=NOW.isoformat()),dict(base,id=2,user_id='u2',binary_answers={'fake':'yes'})]
+        result=score([],micro=micro,comments=comments,answers=answers)
+        self.assertEqual(result['score'],2.5) # (micro1 + ballot1 + writer3) / 2
+        self.assertEqual((result['micro_count'],result['vote_count'],result['writer_count']),(1,1,1))
+
+    def test_snapshot_decay_matches_full_recomputation(self):
+        news=[article(1,'A',3),article(2,'B',1)]
+        event={'id':1,'popularity_score':score(news)['score'],'popularity_updated_at':NOW.isoformat()}
+        later=NOW+timedelta(hours=4)
+        self.assertAlmostEqual(current_score(event,later),score(news,later)['score'])
+
+    def test_historical_group_crossing_does_not_refresh_after_old_article_expires(self):
+        result=score([article(1,'A',37),article(2,'B',36),article(3,'A')])
+        expected=5*2**(-37/6)+5*2**(-36/6)+5+20*2**(-36/6)
+        self.assertAlmostEqual(result['score'],expected)
+
+    def test_read_all_paginates_and_propagates_failure(self):
+        class Query:
+            def __init__(self): self.offsets=[]
+            def table(self,*args): return self
+            def select(self,*args): return self
+            def order(self,*args): return self
+            def range(self,a,b): self.offsets.append(a);return self
+            def execute(self):
+                size=1000 if self.offsets[-1]==0 else 1
+                return type('Result',(),{'data':[{}]*size})()
+        db=Query();self.assertEqual(len(read_all(db,'table','id')),1001);self.assertEqual(db.offsets,[0,1000])
+        class Failed(Query):
+            def execute(self): raise RuntimeError('Read failed')
+        with self.assertRaisesRegex(RuntimeError,'Read failed'):
+            read_all(Failed(),'table','id')
+
+    def test_publication_requires_threshold_and_research_for_both_feeds(self):
+        def event(i,**changes):
+            return {'id':i,'created_at':NOW.isoformat(),'popularity_updated_at':NOW.isoformat(),'popularity_score':30-i,
+                    'enough_data':True,'problem_supported':True,'source_count':2,
+                    'numeric_data':[{'source_url':'https://example.org/data','points':[{'value':1},{'value':2}]}],**changes}
+        rows=[event(i) for i in range(1,6)]+[event(6,popularity_score=4.99),event(7,numeric_data=[])]
+        analyses=[{'event_id':i,'status':'ready','analysis':QUESTIONS} for i in range(1,8)]
+        ids=ready_event_ids(rows,analyses,NOW)
+        self.assertEqual(ids[:3],[1,2,3]);self.assertEqual(ids[3:],[4,5])
+        analyses[0]['analysis']={'binary_questions':[{}, {}, {}]}
+        self.assertNotIn(1,ready_event_ids(rows,analyses,NOW))
+
+if __name__=='__main__': unittest.main()
