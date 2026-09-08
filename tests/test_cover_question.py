@@ -11,7 +11,7 @@ from deep_dive.cover_question import CoverQuestion, cover_patch, refresh_cover_q
 class CoverQuestionTests(unittest.TestCase):
     def setUp(self):
         self.research = {'evidence': [{'url': 'https://official.invalid/burs', 'finding': 'Yeni burs başvuruları açıldı.'}]}
-        self.result = CoverQuestion(question='Burslarda daha çok öğrenci mi, daha yüksek destek mi?', what_happened='Kurum, yeni burs programı için başvuruları açtı.', question_bridge='Öğrencilerin desteğe erişimi açısından:', balanced_tradeoff=True, tradeoff_basis='Sınırlı desteğin kapsamı ile kişi başına miktarı arasındaki tercih.', source_urls=['https://official.invalid/burs'], evidence_basis='Burs başvurularının kapsamı ve başvuru koşulları açıklanmıştır.')
+        self.result = CoverQuestion(question='Burslarda daha çok öğrenci mi, daha yüksek destek mi?', event_headline='Yeni burs programı için başvurular açıldı.', what_happened='Kurum, yeni burs programı için başvuruları açtı.', question_bridge='Öğrencilerin desteğe erişimi açısından:', balanced_tradeoff=True, tradeoff_basis='Sınırlı desteğin kapsamı ile kişi başına miktarı arasındaki tercih.', source_urls=['https://official.invalid/burs'], evidence_basis='Burs başvurularının kapsamı ve başvuru koşulları açıklanmıştır.')
 
     def test_format_and_sources(self):
         self.assertTrue(valid_cover_question(self.result.question))
@@ -34,7 +34,8 @@ class CoverQuestionTests(unittest.TestCase):
             def execute(self): return SimpleNamespace(data=[row])
         with patch('deep_dive.cover_question.generate_cover_question', return_value=cover_patch(self.result, self.research)):
             self.assertEqual(refresh_cover_questions(Query(), None, 'fixture', [7]), 1)
-        self.assertEqual(set(writes[0]), {'analysis'})
+        self.assertEqual(set(writes[0]), {'analysis', 'generated_at'})
+        self.assertNotEqual(writes[0]['generated_at'], row['generated_at'])
         for key, value in original.items():
             self.assertEqual(writes[0]['analysis'][key], value)
         self.assertNotIn('cover_question', original)

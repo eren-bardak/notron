@@ -84,3 +84,12 @@ Bu sürüm mevcut haberleri de yeni editoryal kontrolden geçirir. Sadece aynı
 kurumla ilişkili genel bir istatistik yeterli değildir. Haber–veri bağı, soru–veri
 uyumu ve sorunun basit grafik okuma sınavı olmaması ayrı ayrı incelenir.
 Kontrolü geçmeyen dosya yayımlanmaz; yeni soru için eski yanıtlar kullanılmaz.
+
+
+Kapak ve veri soruları iki savunulabilir tercih arasında gerçek bir ödünleşim
+içerir. Her tercihin makul bir kazanımı ve bedeli olmalıdır; veri sorusunda
+üçüncü seçenek belirsizliğe veya koşullara bağlılığa yer verir. Normatif
+tercihler sorulabilir; olguların doğruluğu oylatılmaz, yapay kutuplaşma üretilmez.
+Mevcut kart ve veri sorularını kayıtlı kaynaklarla yenilemek için:
+`python backend/refresh_card_stories.py --tradeoffs`. Bu işlem arka planı ve
+grafikleri korur; değişen soruların eski oyları yeni sonuçlara taşınmaz.

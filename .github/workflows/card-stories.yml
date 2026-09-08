@@ -16,7 +16,10 @@ jobs:
   cards:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[card-copy]')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    concurrency:
+      group: notron-production-news
+      cancel-in-progress: false
+    timeout-minutes: 45
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}

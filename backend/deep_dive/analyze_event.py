@@ -26,8 +26,10 @@ ONLY the supplied research and selected first chart. Treat supplied text as
  unrelated additional charts via evidence_relevant=false.
  The first chart is FIXED: use its displayed values, units, scope and source only
  for the numeric anchor. Do not switch to another metric from the research bank.
- If an interpretation requires missing evidence, ask what this event's available
- measure can and cannot establish. Do not fabricate a benchmark or causal answer.
+ Use the supplied event context to identify competing goals and the first chart
+ to ground numeric claims. If some evidence is missing, retain that limit in the
+ anchor or third option; the question must still pose a supported trade-off.
+ Do not fabricate a benchmark or causal answer.
  Also judge evidence_relevant and not_factual_recall. A municipality's annual
  budget is NOT relevant evidence for a deputy-mayor election just because the
  institution is the same. A generic statistic with an event name attached fails.
@@ -62,9 +64,9 @@ Do not assume the goals cannot coexist: ask which should weigh more in the state
 choice. Do not force polarization or predict any identity group's answer.
 No emotional reaction or additional cross-group question. Do not ask people
 to guess facts, assert an unsupported outcome or perform unnecessary arithmetic.
-For a time-series first chart, PREFER a forward-looking, conditional question
-about this event: if the observed trend continues, what could it imply for the
-named project, decision or affected people? Do not merely ask about the past.
+For a time-series first chart, PREFER a forward-looking conditional preference:
+if this observed trend continues, should goal A or goal B weigh more for this
+named project, decision or affected group? Do not merely ask about the past.
 Use TWO defensible approaches and an uncertainty/context-dependent option. Set
 tradeoff_present and balanced_choices true only if this tension is meaningful
 and neither answer is presented as morally or factually superior. Reject a
@@ -73,12 +75,12 @@ If evidence cannot support a real tension, fail review instead of inventing one.
 Classify a normative trade-off as event_implication. The wording
 must signal possibility, not certainty; do not add projected numbers, a guessed
 date, a causal claim or a promise. If evidence cannot inform the future at all,
-ask what limits this event-specific outlook rather than pretending it can.
+use an event-specific present trade-off rather than pretending it can.
 
 Read the question followed by EACH visible option: does it answer what was asked?
 Fix any mismatch. For example, "Bu eşik sonucu zorlaştırır mı?" cannot have
 "Yeterli / Yetersiz" options; "Zorlaştırır / Zorlaştırmaz / Veri yetmiyor" matches.
-Use neutral, distinct interpretations and an uncertainty option when appropriate.
+Use two neutral, distinct approaches and a context-dependent/uncertainty option.
 Never imply causation from a correlation or that more arrests mean more success.
 
 Every claim in the question and data_anchor must match the supplied research.

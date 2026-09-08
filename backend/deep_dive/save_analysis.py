@@ -3,7 +3,7 @@ from numeric_data_quality import valid_analysis_timeline
 from editorial_quality import current_editorial
 
 
-def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis) -> None:
+def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis, preserve_card_fields=False) -> None:
     """Keep the newest research and cinematic analysis for an event."""
     numeric_data = [
         series.model_dump(mode="json")
@@ -17,6 +17,10 @@ def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis) -> None
     selected_image = (previous[0].get("analysis") or {}).get("image_selection") if previous else None
     if selected_image:
         analysis_data["image_selection"] = selected_image
+    if preserve_card_fields and previous:
+        for key, value in (previous[0].get("analysis") or {}).items():
+            if key.startswith(("cover_", "card_")):
+                analysis_data[key] = value
     base_row = {
         "event_id": analysis.event_id,
         "status": "ready" if enough_data else "insufficient_data",

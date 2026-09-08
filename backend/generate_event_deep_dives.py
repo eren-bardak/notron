@@ -119,18 +119,20 @@ def main() -> None:
                 continue
 
             old_analysis = cached.get("analysis") or {}
+            question_only = False
             if (not args.force and current_editorial(old_analysis) and old_analysis.get("schema_version") == 2
                     and old_analysis.get("question_revision") == 3 and valid_questions(old_analysis)
                     and valid_analysis_timeline(old_analysis, [series.model_dump(mode="json") for series in research.numeric_series])):
                 # A wording repair needs no second data-story generation or web search.
                 analysis = EventAnalysis.model_validate(old_analysis)
+                question_only = True
                 analysis.binary_questions = review_questions(client, model, research, analysis.binary_questions, analysis.charts, analysis=analysis)
                 analysis.generated_at = datetime.now(timezone.utc).isoformat()
             else:
                 analysis = analyze_event(client, model, research)
             if analysis.event_id != event_id:
                 raise ValueError("Analysis returned a different event ID; no analysis was saved.")
-            save_analysis(db, research, analysis)
+            save_analysis(db, research, analysis, preserve_card_fields=question_only)
             print(
                 f"Deep dive ready | event={event_id} | "
                 f"metrics={len(research.metric_candidates)} | "

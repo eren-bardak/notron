@@ -1,5 +1,6 @@
 """Prepare source-grounded cover questions without changing anyone's ballot."""
 import re
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
 _HYPE = re.compile(r"şok|şoke|inanılmaz|bomba|skandal|gerçek yüz|saklanıyor|gizli gerçek|tıkla|kaçırma|asla inan|herkes bunu", re.I)
@@ -7,6 +8,7 @@ _HYPE = re.compile(r"şok|şoke|inanılmaz|bomba|skandal|gerçek yüz|saklanıyo
 
 class CoverQuestion(BaseModel):
     question: str = Field(min_length=18, max_length=90)
+    event_headline: str = Field(min_length=15, max_length=110)
     what_happened: str = Field(min_length=30, max_length=320)
     question_bridge: str = Field(min_length=5, max_length=100)
     balanced_tradeoff: bool
@@ -41,7 +43,7 @@ def cover_patch(result, research):
             "cover_question_evidence": result.evidence_basis, "cover_question_revision": 2,
             "cover_tradeoff": True, "cover_tradeoff_basis": result.tradeoff_basis,
             "card_summary": result.what_happened.strip(), "card_question_bridge": result.question_bridge.strip(),
-            "card_story_revision": 1}
+            "card_headline": result.event_headline.strip(), "card_story_revision": 2}
 
 
 def generate_cover_question(client, model, research, existing_question=None):
@@ -57,6 +59,11 @@ verified concrete result. Explain the actual occurrence, not its importance.
 Retain attribution for allegations and distinguish detention from conviction.
 Do not replace facts with 'dengeler değişiyor', 'tartışma büyüyor' or an analysis.
 Leave historical context to the separate background section. No questions here.
+Write event_headline: ONE plain factual sentence, ideally <=14 words, max 110
+characters, saying what actually happened. It appears on the image BEFORE the
+question. Use the latest verified development of this occurrence: if a court
+has issued its verdict, do not keep an older 'verdict awaited' title. Name the
+actor/action/result without a teaser, question, interpretation or attribution loss.
 
 Write question_bridge: one short phrase (ideally <=8 words, max 100 characters)
 connecting this occurrence to the subject of the cover question. The UI appends
@@ -93,7 +100,8 @@ measurements. Preserve attribution for contested allegations.
 No shock words, all caps, exclamation marks, emoji, withheld-subject teasers,
 click instructions or exaggerated certainty. Quiet curiosity, clear language.
 Before returning, check every implied premise against the research. If a sharper
-question would imply an unsupported claim, choose a neutral evidence question.
+question would imply an unsupported claim, choose a supported balanced trade-off;
+if none exists, return balanced_tradeoff=false rather than a factual quiz.
 Return 1–3 EXACT supplied source URLs and a short evidence_basis identifying the
 verified finding that makes the question relevant. These fields are internal.
 """
@@ -108,7 +116,7 @@ verified finding that makes the question relevant. These fields are internal.
         raise ValueError("No cover question returned")
     if existing_question and result.question != existing_question:
         raise ValueError("The existing headline question must be preserved")
-    if "?" in result.what_happened or "?" in result.question_bridge or not result.question_bridge.endswith((":", ",")):
+    if "?" in result.event_headline or "?" in result.what_happened or "?" in result.question_bridge or not result.question_bridge.endswith((":", ",")):
         raise ValueError("Separate factual summary and connecting phrase from the headline question")
     return cover_patch(result, research)
 
@@ -124,7 +132,7 @@ def refresh_cover_questions(db, client, model, event_ids, max_reviews=20):
         research = row.get("research") or {}
         if (analysis.get("cover_question_revision") == 2 and analysis.get("cover_tradeoff") is True
                 and valid_cover_question(analysis.get("cover_question"))
-                and analysis.get("card_story_revision") == 1
+                and analysis.get("card_story_revision") == 2 and analysis.get("card_headline")
                 and analysis.get("card_summary") and analysis.get("card_question_bridge")):
             continue
         if not research_urls(research) or attempted >= max_reviews:
@@ -134,7 +142,8 @@ def refresh_cover_questions(db, client, model, event_ids, max_reviews=20):
             existing = analysis.get("cover_question") if analysis.get("cover_question_revision") == 2 and analysis.get("cover_tradeoff") is True else None
             patch = generate_cover_question(client, model, research, existing if valid_cover_question(existing) else None)
             # Replace only the cover fields. Preserve ballot IDs, charts and image selection.
-            write = db.table("event_analyses").update({"analysis": {**analysis, **patch}}).eq("event_id", row["event_id"]).eq("status", "ready")
+            at = datetime.now(timezone.utc).isoformat()
+            write = db.table("event_analyses").update({"analysis": {**analysis, **patch, "generated_at": at}, "generated_at": at}).eq("event_id", row["event_id"]).eq("status", "ready")
             if row.get("generated_at"):
                 write = write.eq("generated_at", row["generated_at"])
             saved = write.execute().data

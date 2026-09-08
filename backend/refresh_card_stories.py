@@ -27,10 +27,11 @@ def refresh_tradeoffs(db, client, model, ids):
         for attempt in range(2):
             try:
                 research = ResearchBundle.model_validate(row["research"])
-                analysis = EventAnalysis.model_validate(original)
+                draft = {**original, "question_revision": 3, "binary_questions": [q for q in original.get("binary_questions", []) if q.get("question_type") == "metric"]}
+                analysis = EventAnalysis.model_validate(draft)
                 questions = review_questions(client, model, research, analysis.binary_questions, analysis.charts, analysis=analysis, feedback=feedback)
                 at = datetime.now(timezone.utc).isoformat()
-                updated = {**original, "binary_questions": [q.model_dump(mode="json") for q in questions],
+                updated = {**original, "question_revision": 3, "binary_questions": [q.model_dump(mode="json") for q in questions],
                            "editorial_review": analysis.editorial_review.model_dump(mode="json"), "generated_at": at}
                 write = db.table("event_analyses").update({"analysis": updated, "generated_at": at}).eq("event_id", row["event_id"]).eq("status", "ready")
                 if row.get("generated_at"):
@@ -64,13 +65,14 @@ def main():
     for row in rows:
         analysis = row.get("analysis") or {}
         cards.append({"event_id": row["event_id"], "title": titles[row["event_id"]],
+                      "headline": analysis.get("card_headline"),
                       "summary": analysis.get("card_summary"), "bridge": analysis.get("card_question_bridge"),
                       "question": analysis.get("cover_question"), "revision": analysis.get("card_story_revision"),
                       "cover_revision": analysis.get("cover_question_revision"), "cover_tradeoff": analysis.get("cover_tradeoff"),
                       "data_question": analysis.get("binary_questions"), "review": analysis.get("editorial_review"),
                       "sources": analysis.get("cover_question_source_urls")})
     Path("card-stories.json").write_text(json.dumps(cards, ensure_ascii=False, indent=2) + "\n")
-    missing = [card["event_id"] for card in cards if card["revision"] != 1 or not card["summary"] or not card["bridge"]
+    missing = [card["event_id"] for card in cards if card["revision"] != 2 or not card["headline"] or not card["summary"] or not card["bridge"]
                or card["cover_revision"] != 2 or card["cover_tradeoff"] is not True
                or (args.tradeoffs and not ((card.get("review") or {}).get("tradeoff_present") is True and (card.get("review") or {}).get("balanced_choices") is True))]
     print(f"Card copy updated: {len(cards) - len(missing)}/{len(ids)}")
