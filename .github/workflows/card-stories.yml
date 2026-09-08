@@ -1,0 +1,44 @@
+name: Nötron card stories
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/card-stories.yml'
+      - 'backend/refresh_card_stories.py'
+      - 'backend/deep_dive/cover_question.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: notron-card-stories
+  cancel-in-progress: false
+jobs:
+  cards:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[card-copy]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: python -m pip install -r backend/requirements.txt
+      - name: Verify card copy safeguards
+        run: python -m unittest discover -s tests -p 'test_cover_question.py'
+      - name: Refresh current news cards
+        working-directory: backend
+        run: python refresh_card_stories.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: card-stories
+          path: backend/card-stories.json
+          if-no-files-found: warn
+          retention-days: 7

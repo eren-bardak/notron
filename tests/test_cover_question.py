@@ -11,7 +11,7 @@ from deep_dive.cover_question import CoverQuestion, cover_patch, refresh_cover_q
 class CoverQuestionTests(unittest.TestCase):
     def setUp(self):
         self.research = {'evidence': [{'url': 'https://official.invalid/burs', 'finding': 'Yeni burs başvuruları açıldı.'}]}
-        self.result = CoverQuestion(question='Yeni burslar kimlerin önünü açabilir?', source_urls=['https://official.invalid/burs'], evidence_basis='Burs başvurularının kapsamı ve başvuru koşulları açıklanmıştır.')
+        self.result = CoverQuestion(question='Yeni burslar kimlerin önünü açabilir?', what_happened='Kurum, yeni burs programı için başvuruları açtı.', question_bridge='Öğrencilerin desteğe erişimi açısından:', source_urls=['https://official.invalid/burs'], evidence_basis='Burs başvurularının kapsamı ve başvuru koşulları açıklanmıştır.')
 
     def test_format_and_sources(self):
         self.assertTrue(valid_cover_question(self.result.question))
