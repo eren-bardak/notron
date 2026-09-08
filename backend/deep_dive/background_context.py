@@ -52,7 +52,9 @@ class BackgroundContext(BaseModel):
 def story_signature(payload):
     event = payload.get("event") or {}
     articles = payload.get("articles") or []
-    content = [event.get("id"), event.get("title"), event.get("summary"), sorted(a["id"] for a in articles)]
+    article_fields = ("id", "title", "description", "content", "summary", "published_at", "updated_at")
+    content = [event.get("id"), event.get("title"), event.get("summary"),
+               [{key: article.get(key) for key in article_fields} for article in sorted(articles, key=lambda item: item["id"])]]
     return hashlib.sha256(json.dumps(content, ensure_ascii=False).encode()).hexdigest()
 
 
@@ -130,9 +132,14 @@ def refresh_background_contexts(db, client, model, event_ids):
     if not event_ids:
         return []
     rows = db.table("event_analyses").select("event_id,analysis,research,generated_at").in_("event_id", event_ids[:20]).eq("status", "ready").execute().data
-    pending = []
+    pending, failed = [], []
     for row in rows:
-        payload = load_event(db, row["event_id"])
+        try:
+            payload = load_event(db, row["event_id"])
+        except Exception as error:
+            failed.append(row["event_id"])
+            print(f"Background load deferred | event={row['event_id']} | {error}", flush=True)
+            continue
         signature = story_signature(payload)
         previous = (row.get("analysis") or {}).get("background_context") or {}
         if previous.get("revision") == CONTEXT_REVISION and previous.get("signature") == signature:
@@ -144,7 +151,6 @@ def refresh_background_contexts(db, client, model, event_ids):
             return row, research_context(client, model, payload, row.get("research") or {}), signature, None
         except Exception as error:
             return row, None, signature, str(error)
-    failed = []
     # Only evidence retrieval runs concurrently; writes remain serial and guarded.
     with ThreadPoolExecutor(max_workers=3) as pool:
         for row, context, signature, error in pool.map(prepare, pending):

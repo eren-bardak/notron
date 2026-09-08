@@ -37,6 +37,7 @@ class BackgroundContextTests(unittest.TestCase):
     def test_new_coverage_invalidates_context_cache(self):
         payload={'event':{'id':75,'title':'Üsküdar','summary':'Seçim'},'articles':[{'id':1}]}
         self.assertNotEqual(story_signature(payload),story_signature({**payload,'articles':[{'id':1},{'id':2}]}))
+        self.assertNotEqual(story_signature(payload),story_signature({**payload,'articles':[{'id':1,'description':'Düzeltilen haber'}]}))
 
 
 if __name__ == '__main__':

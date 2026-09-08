@@ -158,6 +158,7 @@ class SingleQuestionTests(unittest.TestCase):
                      patch.object(pipeline, "OpenAI"), \
                      patch.object(pipeline, "refresh_cover_questions"), \
                      patch.object(pipeline, "refresh_event_covers"), \
+                     patch.object(pipeline, "refresh_background_contexts", return_value=[]), \
                      patch.object(pipeline, "publish_ready_events"), \
                      patch.object(pipeline, "research_event") as do_research, \
                      patch.object(pipeline, "analyze_event") as analyze, \
@@ -175,6 +176,7 @@ class SingleQuestionTests(unittest.TestCase):
                      patch.object(pipeline, "OpenAI"), \
                      patch.object(pipeline, "refresh_cover_questions"), \
                      patch.object(pipeline, "refresh_event_covers"), \
+                     patch.object(pipeline, "refresh_background_contexts", return_value=[]), \
                      patch.object(pipeline, "publish_ready_events"), \
                      patch.object(pipeline, "load_event", return_value={"event": event, "articles": []}), \
                      patch.object(pipeline, "research_event", side_effect=RuntimeError("stop before network")) as fresh:

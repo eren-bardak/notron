@@ -5,6 +5,8 @@ on:
     paths:
       - 'backend/deep_dive/background_context.py'
       - 'backend/refresh_backgrounds.py'
+      - 'tests/test_background_context.py'
+      - 'tests/test_single_data_question.py'
       - '.github/workflows/background-context.yml'
   workflow_dispatch:
 permissions:
