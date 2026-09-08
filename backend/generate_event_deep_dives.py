@@ -10,6 +10,7 @@ from supabase import create_client
 from deep_dive.analyze_event import analyze_event, review_questions
 from deep_dive.research_event import load_event, research_event
 from deep_dive.save_analysis import save_analysis
+from deep_dive.cover_question import refresh_cover_questions
 from deep_dive.models import EventAnalysis, ResearchBundle
 from event_images import refresh_event_covers
 from numeric_data_quality import valid_analysis_timeline
@@ -68,6 +69,8 @@ def main() -> None:
     ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") == 2}
     pending = eligible if args.force else [event for event in eligible if not event.get("enough_data") or not valid_numeric_data(event.get("numeric_data")) or int(event["id"]) not in ready]
     failures = 0
+    # Update existing covers first; missing-data research may take much longer.
+    refresh_cover_questions(db, client, model, [event_id for event_id in ids if event_id in ready], max_reviews=MAX_EVENTS_PER_RUN)
 
     for event in pending[:MAX_EVENTS_PER_RUN]:
         event_id = int(event["id"])
@@ -135,6 +138,8 @@ def main() -> None:
             print(f"Deep dive failed | event={event_id} | error={error}")
             failures += 1
 
+    # Covers are edited separately so a headline refresh never invalidates ballots.
+    refresh_cover_questions(db, client, model, [event_id for event_id in ids if event_id not in ready], max_reviews=MAX_EVENTS_PER_RUN)
     # Photo review also covers already-ready events and does not alter question IDs.
     refresh_event_covers(db, client, model, ids, max_reviews=MAX_EVENTS_PER_RUN)
     publish_ready_events(db)

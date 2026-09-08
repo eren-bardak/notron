@@ -8,6 +8,7 @@ from supabase import create_client
 from deep_dive.analyze_event import analyze_event
 from deep_dive.research_event import load_event, research_event
 from deep_dive.save_analysis import save_analysis
+from deep_dive.cover_question import refresh_cover_questions
 from pipeline_visibility import publish_ready_events, valid_numeric_data
 
 
@@ -40,6 +41,7 @@ def main() -> None:
         return
     analysis = analyze_event(client, model, research)
     save_analysis(db, research, analysis)
+    refresh_cover_questions(db, client, model, [args.event_id], max_reviews=1)
     publish_ready_events(db)
 
     print(f"Deep dive ready | event={args.event_id} | charts={len(analysis.charts)}")
