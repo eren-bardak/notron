@@ -1,0 +1,40 @@
+name: Nötron source timestamps
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/source-timestamps.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r backend/requirements.txt
+      - name: Read existing public article timestamps
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from supabase import create_client
+          db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+          rows = db.table("news").select("*").order("id", desc=True).limit(20).execute().data
+          keys = sorted({key for row in rows for key in row})
+          timestamp_keys = [key for key in keys if key.endswith("_at") or "timestamp" in key]
+          result = {"fields": keys, "articles": [{key: row.get(key) for key in ["id", "source", "url"] + timestamp_keys} for row in rows]}
+          Path("source-timestamps.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
+          print("Public article timestamp fields:", ", ".join(timestamp_keys))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-timestamps
+          path: source-timestamps.json
+          retention-days: 3
