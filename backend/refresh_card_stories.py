@@ -10,7 +10,6 @@ from supabase import create_client
 from deep_dive.cover_question import refresh_cover_questions
 from deep_dive.analyze_event import review_questions, complete_question_text
 from deep_dive.models import EventAnalysis, ResearchBundle
-from deep_dive.key_metrics import with_key_metrics
 from deep_dive.editorial_overrides import event_tradeoff
 from pipeline_visibility import ready_event_ids
 from popularity import read_all
@@ -33,7 +32,7 @@ def refresh_tradeoffs(db, client, model, ids):
             try:
                 research = ResearchBundle.model_validate(row["research"])
                 draft = {**original, "question_revision": 3, "binary_questions": [q for q in original.get("binary_questions", []) if q.get("question_type") == "metric"]}
-                analysis = EventAnalysis.model_validate(with_key_metrics(draft, research.model_dump(mode="json")))
+                analysis = EventAnalysis.model_validate(draft)
                 questions = review_questions(client, model, research, analysis.binary_questions, analysis.charts, analysis=analysis, feedback=feedback)
                 at = datetime.now(timezone.utc).isoformat()
                 updated = {**original, "question_revision": 3, "binary_questions": [q.model_dump(mode="json") for q in questions],

@@ -1,7 +1,6 @@
 from .models import EventAnalysis, ResearchBundle
 from numeric_data_quality import valid_analysis_timeline
 from editorial_quality import current_editorial
-from .key_metrics import with_key_metrics
 
 
 def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis, preserve_card_fields=False) -> None:
@@ -12,7 +11,7 @@ def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis, preserv
     ]
 
     research_data = research.model_dump(mode="json")
-    analysis_data = with_key_metrics(analysis.model_dump(mode="json"), research_data)
+    analysis_data = analysis.model_dump(mode="json")
     enough_data = valid_analysis_timeline(analysis_data, numeric_data) and current_editorial(analysis_data)
     previous = db.table("event_analyses").select("analysis").eq("event_id", analysis.event_id).limit(1).execute().data
     selected_image = (previous[0].get("analysis") or {}).get("image_selection") if previous else None
