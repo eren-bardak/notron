@@ -59,7 +59,7 @@ are not a complete defense against coordinated accounts.
 
 ## Qualification and placement
 
-The clustering gates are: last 36 hours, at least two distinct publishers,
+The clustering gates are: last 24 hours, at least two distinct publishers,
 confidence at least 50, and articles referring to the same concrete occurrence.
 Positive, neutral and negative developments qualify equally. There is no problem
 requirement; legacy problem fields are descriptive metadata only. A new cluster must include
@@ -68,10 +68,10 @@ at least one new article. Clustering can consider up to 20 events in a run.
 Before publication an event must have:
 
 - A successful data-availability result, regardless of whether the news is positive or negative.
-- At least two deduplicated publishers with articles from the last 36 hours.
+- At least two deduplicated publishers with articles from the last 24 hours.
 - A sourced numerical series with at least two finite values.
 - A ready deep analysis with exactly three nonempty questions.
-- An event creation time within 36 hours and a current score of at least 5.
+- An event creation time within 24 hours and a current score of at least 5.
 
 The top three qualifying events appear in Gündem. All remaining qualifying events
 appear in Other Events, directly after Gündem. Ties use event ID. An event may
@@ -80,7 +80,7 @@ Below-threshold, expired, or incomplete events appear in neither tab. Old record
 are retained in the database. There is no minimum number of displayed events.
 
 The 5-point threshold lets smaller, corroborated stories qualify while removing
-inactive stories through decay. The 36-hour event age limit is absolute: fresh
+inactive stories through decay. The 24-hour event age limit is absolute: fresh
 comments do not keep an old event displayed indefinitely. Active web views expire
 cards and refresh the feed; Gündem is always capped at three cards.
 

@@ -10,11 +10,12 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 from typing import Literal
 from supabase import create_client
+from popularity import POLICY
 
 
 load_dotenv()
 
-NEWS_WINDOW_HOURS = 36
+NEWS_WINDOW_HOURS = POLICY["event_window_hours"]
 MODEL = os.getenv("OPENAI_EVENT_MODEL", "gpt-5.4-mini")
 MIN_SOURCES, MIN_CONFIDENCE, MAX_EVENTS = 2, 50, 10
 

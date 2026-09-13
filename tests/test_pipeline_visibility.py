@@ -15,10 +15,10 @@ class PublicationTests(unittest.TestCase):
                     "problem_supported": True, "numeric_data": [{"ordered": True, "source_url":"https://example.org/data", "points": [{"label":"2024", "value":1}, {"label":"2025", "value":2}]}],
                     "source_count": 2, "popularity_score": 100-i, "popularity_updated_at": now.isoformat(), **changes}
         events = [event(1), event(2, numeric_data=[]), event(3), event(4),
-                  event(5, created_at=(now-timedelta(hours=37)).isoformat()),
+                  event(5, created_at=(now-timedelta(hours=25)).isoformat()),
                   event(6, created_at=(now+timedelta(minutes=1)).isoformat()),
                   event(7, source_count=1), event(8, problem_supported=False),
-                  event(9), event(10, created_at=(now-timedelta(hours=36)).isoformat()),
+                  event(9), event(10, created_at=(now-timedelta(hours=24)).isoformat()),
                   event(11, created_at=None)]
         analyses = [{"event_id": i, "status": "ready", "analysis": {"editorial_review": {"revision": 2, "question_intent": "event_implication", "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True}, "binary_questions": [{"question":"A?"},{"question":"B?"},{"question":"C?", "question_type":"metric", "data_anchor":"2025: 2"}],
                      "charts": [{"chart_type":"line", "source_urls":["https://example.org/data"], "points":[{"label":"2024", "value":1}, {"label":"2025", "value":2}]}]}}

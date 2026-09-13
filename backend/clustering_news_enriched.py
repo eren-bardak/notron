@@ -10,8 +10,9 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
 from supabase import create_client
+from popularity import POLICY
 
-NEWS_WINDOW_HOURS = 36
+NEWS_WINDOW_HOURS = POLICY["event_window_hours"]
 
 def recent_news_cutoff(now=None):
     """Return the inclusive UTC cutoff for current news."""

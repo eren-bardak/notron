@@ -100,7 +100,7 @@ class HiddenPattern(BaseModel):
 class DataStory(BaseModel):
     headline: str
     baseline: str
-    key_metrics: list[KeyMetric] = Field(min_length=1, max_length=12)
+    key_metrics: list[KeyMetric] = Field(min_length=0, max_length=12)
     hidden_patterns: list[HiddenPattern] = Field(min_length=0, max_length=5)
     what_to_watch_next: list[str] = Field(min_length=1, max_length=5)
     limitations: list[str] = Field(min_length=1, max_length=6)

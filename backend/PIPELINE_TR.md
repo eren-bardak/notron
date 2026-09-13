@@ -26,7 +26,7 @@ Kurallar ve zamanlayıcı kurulumu `backend/POPULARITY.md` dosyasında açıklan
 Olumlu, nötr ve olumsuz haberler eşit şekilde değerlendirilir; problem şartı yoktur.
 Popülerlik önce araştırma sırasını belirler. Son adım, hazır analiz ve sayısal
 veriye sahip, en az iki güncel kaynağı bulunan olayları görünür yapar. Son
-36 saatin dışındaki haberler gündemde gösterilmez; eski kayıtlar silinmez.
+24 saatin dışındaki haberler gündemde gösterilmez; eski kayıtlar silinmez.
 Güncel puanı en az 5 olan uygun olayların ilk 3'ü Gündem'de, diğerleri hemen
 sonrasındaki Diğer Haberler sekmesinde gösterilir.
 
@@ -36,6 +36,8 @@ soruyu değerlendirmeye yarayan kaynaklı ölçümleri toplar. Tek bir ölçüm,
 aynı dönemde karşılaştırma veya dağılım yeterli olabilir; zaman serisi zorunlu
 değildir. Soru haberin aktörüne, yerine, kararına ya da iddiasına özel yazılır.
 Son soru incelemesi yalnız ilk ekranda gösterilen veriyle eşleşen soruyu kabul eder.
+Olayla doğrudan ilgili ek metrikler varsa veri bölümünde en fazla üçü kaynak,
+dönem ve kapsamıyla gösterilir. Uygun metrik yoksa bu alan görünmez.
 
 Zaman serisi kullanılırsa her seri/grafikte önceki UTC takvim yılına ait gerçek
 gözlem bulunması gerekir (2026'da 2025). Karşılaştırmalara ve tekil ölçümlere bu

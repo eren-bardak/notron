@@ -56,8 +56,14 @@ Return:
 - First define reader_question: ONE concrete question raised by THIS occurrence.
   Name the actual decision, claim, project, location or actors when useful.
   Ask what a reader needs to understand about this news, not its broad category.
-- Then collect one to six relevant verified metric candidates and one to four
-  numeric evidence items ONLY when they help assess that reader_question.
+- Collect zero to three verified metric candidates that directly explain THIS
+  concrete event's scale, change or consequences. Prefer two or three distinct
+  useful facts when available; use one or [] when there is no more relevant data.
+  Include the exact value, unit, period and geography in the evidence finding
+  at the metric's exact source URL. Explain its concrete connection to this event
+  in why_it_matters. Label estimates, claims, forecasts and targets explicitly.
+  Never pad with a generic topic statistic, invent comparisons or fill a quota.
+- Collect one to four numeric evidence items ONLY when they help assess that reader_question.
   A single well-sourced measurement is enough; do not fill numerical quotas.
 - Reject evidence that only shares an institution, person or broad topic with
   this event. A municipality's general budget does NOT explain a deputy-mayor

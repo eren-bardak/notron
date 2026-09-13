@@ -9,6 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from supabase import create_client
+from popularity import POLICY
 
 
 def recent_news_cutoff(now=None):
@@ -58,7 +59,7 @@ def clean_description(value):
 # CONFIG
 # ============================================================
 
-NEWS_WINDOW_HOURS = 36
+NEWS_WINDOW_HOURS = POLICY["event_window_hours"]
 MAX_PAGE_SCRAPES_PER_SOURCE = 5
 
 load_dotenv()
