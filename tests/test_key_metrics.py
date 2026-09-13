@@ -1,10 +1,11 @@
 import copy
 import unittest
+from unittest.mock import Mock
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from deep_dive.key_metrics import grounded_key_metrics, with_key_metrics
+from deep_dive.key_metrics import grounded_key_metrics, with_key_metrics, refresh_key_metrics
 from deep_dive.models import DataStory
 
 
@@ -19,6 +20,19 @@ def research(metrics):
 
 
 class KeyMetricTests(unittest.TestCase):
+    def test_optional_refresh_failure_does_not_abort_pipeline(self):
+        db = Mock()
+        table = db.table.return_value
+        table.select.return_value.in_.return_value.execute.side_effect = RuntimeError("temporary read failure")
+        self.assertEqual(refresh_key_metrics(db, [1]), 0)
+        table.select.return_value.in_.return_value.execute.side_effect = None
+        table.select.return_value.in_.return_value.execute.return_value.data = [
+            {"event_id": 1, "status": "ready", "analysis": {"data_story": {"key_metrics": []}}, "research": {}},
+            {"event_id": 2, "status": "ready", "analysis": "malformed cache", "research": {}},
+        ]
+        table.update.return_value.eq.return_value.execute.side_effect = RuntimeError("temporary write failure")
+        self.assertEqual(refresh_key_metrics(db, [1, 2]), 0)
+
     def test_optional_without_filler(self):
         for selected in (None, [], "invalid"):
             self.assertEqual(grounded_key_metrics(selected, research([metric()])), [])

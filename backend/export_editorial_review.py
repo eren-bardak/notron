@@ -26,10 +26,13 @@ def main():
         result.append({"event_id": event["id"], "title": event["title"], "status": row.get("status"),
                        "published": event["id"] in visible, "stored_visible": event.get("is_visible"), "generated_at": row.get("generated_at"), "research_revision": (row.get("research") or {}).get("editorial_revision"), "editorial_current": current_editorial(analysis),
                        "review": analysis.get("editorial_review"), "explanation": analysis.get("event_explanation"),
-                       "charts": analysis.get("charts"), "questions": analysis.get("binary_questions")})
+                       "charts": analysis.get("charts"), "questions": analysis.get("binary_questions"),
+                       "key_metrics_revision": analysis.get("key_metrics_revision"),
+                       "key_metrics": (analysis.get("data_story") or {}).get("key_metrics", [])})
     output = Path("editorial-review.json")
     output.write_text(json.dumps({"generated_at": now.isoformat(), "published_ids": visible, "events": result}, ensure_ascii=False, indent=2) + "\n")
     print(f"Editorial export | published={len(visible)} | reviewed={sum(e['editorial_current'] for e in result)}")
+    print(f"Event highlights | published_with_metrics={sum(bool(e['key_metrics']) and e['key_metrics_revision'] == 1 for e in result if e['published'])}")
 
 
 if __name__ == "__main__":

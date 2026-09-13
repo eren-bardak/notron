@@ -60,7 +60,7 @@ def grounded_key_metrics(selected, research):
 
 def with_key_metrics(analysis, research):
     """Normalize legacy caches without touching questions, covers or research."""
-    result = deepcopy(analysis or {})
+    result = deepcopy(analysis) if isinstance(analysis, dict) else {}
     story = result.get("data_story")
     if isinstance(story, dict):
         story["key_metrics"] = grounded_key_metrics(story.get("key_metrics"), research)
@@ -71,13 +71,20 @@ def with_key_metrics(analysis, research):
 def refresh_key_metrics(db, event_ids):
     if not event_ids:
         return 0
-    rows = db.table("event_analyses").select("event_id,status,analysis,research").in_("event_id", event_ids).execute().data
+    try:
+        rows = db.table("event_analyses").select("event_id,status,analysis,research").in_("event_id", event_ids).execute().data
+    except Exception as error:
+        print(f"Event highlights deferred | {type(error).__name__}", flush=True)
+        return 0
     updated = 0
     for row in rows:
-        old = row.get("analysis") or {}
-        if row.get("status") != "ready" or old.get("key_metrics_revision") == KEY_METRICS_REVISION:
+        old = row.get("analysis")
+        if not isinstance(old, dict) or row.get("status") != "ready" or old.get("key_metrics_revision") == KEY_METRICS_REVISION:
             continue
         analysis = with_key_metrics(old, row.get("research") or {})
-        db.table("event_analyses").update({"analysis": analysis}).eq("event_id", row["event_id"]).execute()
-        updated += 1
+        try:
+            db.table("event_analyses").update({"analysis": analysis}).eq("event_id", row["event_id"]).execute()
+            updated += 1
+        except Exception as error:
+            print(f"Event highlights deferred | event={row['event_id']} | {type(error).__name__}", flush=True)
     return updated
