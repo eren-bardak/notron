@@ -13,6 +13,7 @@ from deep_dive.save_analysis import save_analysis
 from deep_dive.cover_question import refresh_cover_questions
 from deep_dive.background_context import refresh_background_contexts
 from deep_dive.models import EventAnalysis, ResearchBundle
+from deep_dive.key_metrics import with_key_metrics, refresh_key_metrics
 from event_images import refresh_event_covers
 from numeric_data_quality import valid_analysis_timeline
 from pipeline_visibility import enforce_previous_year_gate, publish_ready_events, valid_questions, valid_numeric_data
@@ -129,7 +130,7 @@ def main() -> None:
                     and old_analysis.get("question_revision") == 3 and valid_questions(old_analysis)
                     and valid_analysis_timeline(old_analysis, [series.model_dump(mode="json") for series in research.numeric_series])):
                 # A wording repair needs no second data-story generation or web search.
-                analysis = EventAnalysis.model_validate(old_analysis)
+                analysis = EventAnalysis.model_validate(with_key_metrics(old_analysis, research.model_dump(mode="json")))
                 question_only = True
                 analysis.binary_questions = review_questions(client, model, research, analysis.binary_questions, analysis.charts, analysis=analysis)
                 analysis.generated_at = datetime.now(timezone.utc).isoformat()
@@ -150,6 +151,8 @@ def main() -> None:
             print(f"Deep dive failed | event={event_id} | error={error}")
             failures += 1
 
+    # Optional highlights reuse saved research and never change ballots or visibility.
+    print(f"Event highlights refreshed | events={refresh_key_metrics(db, ids)}", flush=True)
     # Covers are edited separately so a headline refresh never invalidates ballots.
     refresh_cover_questions(db, client, model, [event_id for event_id in ids if event_id not in ready], max_reviews=MAX_EVENTS_PER_RUN)
     # Photo review also covers already-ready events and does not alter question IDs.

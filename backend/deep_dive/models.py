@@ -41,8 +41,8 @@ class KeyMetric(BaseModel):
     time_scope: str
     geography: str
     comparison_label: str = ""
-    comparison_value: float | None = None
-    delta_percent: float | None = None
+    comparison_value: float | None = Field(default=None, strict=True, allow_inf_nan=False)
+    delta_percent: float | None = Field(default=None, strict=True, allow_inf_nan=False)
     trend: Literal["up", "down", "flat", "mixed", "unknown"]
     why_it_matters: str
     source_name: str
@@ -100,7 +100,7 @@ class HiddenPattern(BaseModel):
 class DataStory(BaseModel):
     headline: str
     baseline: str
-    key_metrics: list[KeyMetric] = Field(min_length=1, max_length=12)
+    key_metrics: list[KeyMetric] = Field(min_length=0, max_length=3)
     hidden_patterns: list[HiddenPattern] = Field(min_length=0, max_length=5)
     what_to_watch_next: list[str] = Field(min_length=1, max_length=5)
     limitations: list[str] = Field(min_length=1, max_length=6)

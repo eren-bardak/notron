@@ -170,8 +170,11 @@ The output must contain:
    an earlier vote/decision was challenged or changed, its exact legal status,
    and the relevant response. State unknowns instead of silently omitting them.
 2. A concise concrete-event explanation of 2 to 3 sentences.
-3. A data_story with 1 to 6 directly relevant key metrics, evidenced patterns, baselines,
-   what to watch next and explicit limitations.
+3. A data_story with ZERO to THREE directly relevant key metrics, evidenced patterns,
+   baselines, what to watch next and explicit limitations. Prefer two or three distinct
+   facts that make this concrete event's scale, change or everyday impact meaningful.
+   Return one or [] if that is all the useful evidence; never fill a quota or use
+   generic topic statistics. Keep estimates, claims and forecasts clearly qualified.
 4. The strongest one or two evidence displays using only supplied numeric_series values.
    The first chart must show the numeric finding used by the one question.
    Each chart copies a subset of ONE coherent numeric_series; never combine
