@@ -8,5 +8,7 @@
   "primary_limit": 3,
   "event_window_hours": 24,
   "publisher_breadth_points": 3,
-  "publisher_breadth_cap": 4
+  "publisher_breadth_cap": 4,
+  "google_trends_max_points": 10,
+  "google_trends_full_traffic": 100000
 }

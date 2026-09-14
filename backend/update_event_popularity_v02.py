@@ -1,10 +1,12 @@
 """Run after clustering. Score candidates; deep dives publish completed events."""
 import os
+import json
 from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 from supabase import create_client
 from popularity import POLICY, normalize, parse_time, read_all, score_event, source_side
+from google_trends import event_trend_bonus, fetch_trends
 
 
 def main():
@@ -35,9 +37,19 @@ def main():
     news_by_id = {int(r['id']): r for r in news}
     analysis_by_id = {int(r['event_id']): r.get('analysis') or {} for r in analyses}
     sides = {normalize(s['name']): source_side(s.get('source_group')) for s in sources}
+    trends = fetch_trends(now)
+    articles_by_event = {event_id: [] for event_id in ids}
+    for link in links:
+        article = news_by_id.get(int(link['news_id']))
+        if article and int(link['event_id']) in articles_by_event:
+            articles_by_event[int(link['event_id'])].append(article)
     results = []
     for event in events:
         result = score_event(event, links, news_by_id, sides, micro, comments, answers, analysis_by_id.get(int(event['id'])), now)
+        trend = event_trend_bonus(articles_by_event[int(event['id'])], trends, now)
+        if trend:
+            result['score'] += trend['points']
+            print('GOOGLE_TRENDS_MATCH ' + json.dumps({'event_id': event['id'], **trend}, ensure_ascii=False))
         results.append((event, result))
     results.sort(key=lambda pair: (-pair[1]['score'], int(pair[0]['id'])))
     print('RANK | SCORE | SOURCES | BALLOTS | EVENT')

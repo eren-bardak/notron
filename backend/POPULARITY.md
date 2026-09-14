@@ -1,4 +1,4 @@
-# Nötron: selection and six-hour news pipeline
+# Nötron: selection and daily news pipeline
 
 ## Starting policy
 
@@ -13,6 +13,7 @@ These are initial product settings, not weights calibrated against real traffic.
 | Q: ballot | 1 | One scored ballot per account per event, with at least one valid answer |
 | S: Writer comment | 3 | One active scored Writer comment per account per event |
 | D: registered publisher breadth | 3 each, at most 12 | Second through fifth distinct registered publisher, once each, aged from their first article |
+| G: Google Trends | At most 10 | Strongest recent Türkiye trend linked to an event's actual source article |
 
 P is worth four articles, so reaching different media audiences matters. R keeps
 reporting central. Q rewards participation without letting rapid, repeated actions
@@ -56,6 +57,44 @@ time. Per-account limits affect ranking credit, not how many valid contributions
 can appear in discussion. Clearly marked sample answers and comments stay outside
 the participation tables and never score. These limits reduce repetition; they
 are not a complete defense against coordinated accounts.
+
+## Optional Google Trends signal
+
+Each scoring run reads the public [Google Trends Türkiye RSS](https://trends.google.com/trending/rss?geo=TR)
+once. This feed is a limited recent snapshot, not comprehensive 24-hour search
+data. Only feed entries and source articles dated within our 24-hour window can
+match. The RSS timestamp is a freshness proxy, not an article publication time or
+a verified start of the search-volume measurement interval.
+
+A match requires the same canonical article URL in the event's linked news and
+the trend's related news. Tracking parameters are ignored; broad query names and
+keyword overlap alone do not qualify. This conservative rule can miss real
+matches, but avoids applying a trend about one occurrence to another.
+
+The strongest matching trend contributes:
+
+`G = 10 × min(1, ln(1 + approximate traffic bucket) / ln(1 + 100000)) × 2^(-feed age hours / 6)`
+
+The cap and reference bucket are initial, configurable product choices, not
+calibrated weights. Repeated queries, article links and reruns do not stack the
+bonus. The original feed timestamp controls decay, so fetching the same entry
+again does not refresh its age. The public feed's traffic labels, such as `2000+`,
+are approximate buckets, not exact search counts or an event's audience size.
+No growth percentage is inferred because the RSS does not expose one.
+
+If the feed is unavailable, malformed, stale or unrelated, the existing scoring
+formula applies without a bonus. Absence is not evidence that people are not
+interested. No API key, paid provider, additional polling schedule or database
+migration is needed. The configured daily run is still the only scan.
+
+Every applied bonus is attributed to Google Trends in a `GOOGLE_TRENDS_MATCH` log
+record containing the query, original traffic label, feed timestamp, matched
+article URL and points. Google Trends never supplies an extra publisher, a
+corroborating source, or evidence for the event's data charts. All publication
+requirements below still apply.
+
+References: [Trending Now](https://support.google.com/trends/answer/3076011?hl=en),
+[attribution](https://support.google.com/trends/answer/4365538?hl=en).
 
 ## Qualification and placement
 
@@ -107,7 +146,7 @@ same Mac/Linux host. Prior successful steps are not rolled back after a failure.
 The final stage publishes only complete, qualified analyses.
 Scheduled and manual runs always execute all four stages. A maintenance push
 explicitly marked `[editorial-refresh]` reruns only the final stage against saved
-research; it does not refetch RSS or change the normal six-hour schedule.
+research; it does not refetch RSS or change the daily schedule.
 It also refreshes older question layouts from saved research, then reviews real
 source photographs for ready events. Photo review checks actual dimensions
 (minimum 800×450), deduplicates visual variants, and asks a vision model to choose
@@ -122,10 +161,9 @@ Ballot fingerprints include the wording and all labels; old answers are never
 relabelled as reactions. The internal yes/no/unsure slots remain compatible with
 the existing database, but chart labels always reflect the specific question.
 
-The provided `.github/workflows/news-pipeline.yml` is configured for 00:17, 06:17,
-12:17 and 18:17 in Europe/Istanbul, plus manual runs and pipeline-code updates on
-`main`. The first pipeline upload triggers a run automatically. The minute offset avoids
-the busiest beginning of the hour. GitHub can delay or drop scheduled runs, so
+The provided `.github/workflows/news-pipeline.yml` is configured for 09:00 daily
+in Europe/Istanbul, plus manual runs and pipeline-code updates on `main`.
+The first pipeline upload triggers a run automatically. GitHub can delay or drop scheduled runs, so
 these are scheduled start times, not a real-time guarantee. See the
 [official schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
 
