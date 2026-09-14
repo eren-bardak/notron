@@ -8,6 +8,7 @@ on:
       - '.github/workflows/news-pipeline.yml'
   workflow_dispatch:
   schedule:
+    # Daily at 09:00 Türkiye time; GitHub may delay scheduled starts.
     - cron: '0 9 * * *'
       timezone: Europe/Istanbul
 permissions:
