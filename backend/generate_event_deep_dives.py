@@ -14,7 +14,7 @@ from deep_dive.cover_question import refresh_cover_questions
 from deep_dive.background_context import refresh_background_contexts
 from deep_dive.models import EventAnalysis, ResearchBundle
 from event_images import refresh_event_covers
-from numeric_data_quality import valid_analysis_timeline
+from numeric_data_quality import valid_analysis_timeline, has_event_evidence
 from pipeline_visibility import enforce_previous_year_gate, publish_ready_events, valid_questions, valid_numeric_data
 from popularity import POLICY, current_score
 from editorial_quality import RESEARCH_REVISION, current_editorial
@@ -71,7 +71,7 @@ def main() -> None:
     stored_by_id = {int(row["event_id"]): row for row in stored}
     # Reuse only analyses reviewed under the current editorial policy. Old ballot rows remain stored.
     ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and current_editorial(row.get("analysis")) and (row["analysis"].get("editorial_review") or {}).get("tradeoff_present") is True and (row["analysis"].get("editorial_review") or {}).get("balanced_choices") is True and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") in (2, 3)}
-    pending = eligible if args.force else [event for event in eligible if not event.get("enough_data") or not valid_numeric_data(event.get("numeric_data")) or int(event["id"]) not in ready]
+    pending = eligible if args.force else [event for event in eligible if not event.get("enough_data") or not valid_analysis_timeline((stored_by_id.get(int(event["id"])) or {}).get("analysis"), event.get("numeric_data")) or int(event["id"]) not in ready]
     for event in eligible:
         old_questions = (stored_by_id.get(int(event["id"]), {}).get("analysis") or {}).get("binary_questions") or []
         if event not in pending and any(not complete_question_text(q.get("question")) for q in old_questions):
@@ -87,7 +87,7 @@ def main() -> None:
 
         try:
             cached = stored_by_id.get(event_id, {})
-            if not args.force and (cached.get("research") or {}).get("editorial_revision") == RESEARCH_REVISION and valid_numeric_data(event.get("numeric_data")):
+            if not args.force and (cached.get("research") or {}).get("editorial_revision") == RESEARCH_REVISION and (valid_numeric_data(event.get("numeric_data")) or has_event_evidence(cached.get("research"))):
                 try:
                     research = ResearchBundle.model_validate(cached["research"])
                     print(f"Refresh questions from saved research | event={event_id}")
@@ -99,7 +99,12 @@ def main() -> None:
             if research.event_id != event_id:
                 raise ValueError("Research returned a different event ID; no analysis was saved.")
 
-            if not valid_numeric_data([series.model_dump() for series in research.numeric_series]):
+            # Keep independently valid measurements; unsupported charts never block a sourced story.
+            research.numeric_series = [series for series in research.numeric_series
+                                       if valid_numeric_data([series.model_dump(mode="json")])]
+            if not research.numeric_series:
+                research.metric_candidates = []
+            if not research.numeric_series and not has_event_evidence(research.model_dump(mode="json")):
                 db.table("events").update(
                     {
                         "enough_data": False,
@@ -119,7 +124,7 @@ def main() -> None:
                     },
                     on_conflict="event_id",
                 ).execute()
-                reason = f"no valid sourced event evidence (timelines require observed {datetime.now(timezone.utc).year - 1} data)"
+                reason = "no numerical evidence or explanation supported by two source domains"
                 print(f"Deep dive skipped | event={event_id} | {reason}")
                 continue
 

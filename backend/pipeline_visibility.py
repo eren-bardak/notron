@@ -13,7 +13,7 @@ def valid_questions(analysis):
                and q['question'].strip() for q in questions):
         return False
     # Keep legacy arrays untouched: their original positions are part of ballot IDs.
-    metrics = [q for q in questions if q.get('question_type') == 'metric']
+    metrics = [q for q in questions if q.get('question_type') in ('metric', 'event')]
     return (len(metrics) == 1 and isinstance(metrics[0].get('data_anchor'), str)
             and bool(metrics[0]['data_anchor'].strip()))
 

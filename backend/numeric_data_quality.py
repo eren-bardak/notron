@@ -124,8 +124,43 @@ def valid_numeric_data(series, now=None):
                and _valid_evidence(item, year) for item in series)
 
 
+def valid_qualitative_analysis(analysis):
+    if not isinstance(analysis, dict) or analysis.get("evidence_mode") != "qualitative":
+        return False
+    story = analysis.get("data_story")
+    if analysis.get("charts") != [] or not isinstance(story, dict) or story.get("key_metrics") != []:
+        return False
+    urls = set()
+    for field in ("background", "event_explanation"):
+        section = analysis.get(field)
+        if not isinstance(section, dict) or not isinstance(section.get("narration"), str) or not section["narration"].strip():
+            return False
+        sources = section.get("source_urls")
+        if not isinstance(sources, list) or not sources or not all(source_url(url) for url in sources):
+            return False
+        urls.update(urlsplit(url).hostname.lower().removeprefix("www.") for url in sources)
+    questions = analysis.get("binary_questions")
+    return (len(urls) >= 2 and isinstance(questions, list) and len(questions) == 1
+            and isinstance(questions[0], dict) and questions[0].get("question_type") == "event"
+            and isinstance(questions[0].get("data_anchor"), str) and bool(questions[0]["data_anchor"].strip()))
+
+
+def has_event_evidence(research):
+    """A source-backed explanation can stand alone without a numeric display."""
+    if not isinstance(research, dict) or not str(research.get("background") or "").strip() or not str(research.get("event_explanation") or "").strip():
+        return False
+    evidence = research.get("evidence")
+    if not isinstance(evidence, list):
+        return False
+    hosts = {urlsplit(item["url"]).hostname.lower().removeprefix("www.") for item in evidence
+             if isinstance(item, dict) and source_url(item.get("url")) and str(item.get("finding") or "").strip()}
+    return len(hosts) >= 2
+
+
 def valid_analysis_timeline(analysis, series, now=None):
     """Historical API name: validate ALL displayed evidence against source values."""
+    if series == []:
+        return valid_qualitative_analysis(analysis)
     if not valid_numeric_data(series, now) or not isinstance(analysis, dict):
         return False
     charts = analysis.get("charts")

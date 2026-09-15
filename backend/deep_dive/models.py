@@ -117,7 +117,7 @@ class BinaryQuestion(BaseModel):
     question: str = Field(min_length=5, max_length=100)
     data_anchor: str = Field(min_length=1, max_length=180)
     why_it_matters: str
-    question_type: Literal["metric"]
+    question_type: Literal["metric", "event"]
     choice_labels: AnswerLabels
 
 
@@ -134,6 +134,7 @@ class EditorialReview(BaseModel):
 
 
 class EventAnalysis(BaseModel):
+    evidence_mode: Literal["numeric", "qualitative"] = "numeric"
     editorial_review: EditorialReview | None = None
     schema_version: Literal[2]
     question_revision: Literal[3]
@@ -143,5 +144,5 @@ class EventAnalysis(BaseModel):
     background: StorySection
     event_explanation: StorySection
     data_story: DataStory
-    charts: list[Chart] = Field(min_length=1, max_length=2)
+    charts: list[Chart] = Field(min_length=0, max_length=2)
     binary_questions: list[BinaryQuestion] = Field(min_length=1, max_length=1)
