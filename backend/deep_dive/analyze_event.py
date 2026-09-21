@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from .models import BinaryQuestion, EventAnalysis, ResearchBundle, EditorialReview
 from numeric_data_quality import valid_analysis_timeline
 from .editorial_overrides import curate_known_event, event_tradeoff
+from .analysis_evidence import analysis_output_model, evidence_catalog, materialize_analysis
 
 
 class ReviewedQuestions(EditorialReview):
@@ -312,17 +313,36 @@ is pending.
     now = datetime.now(timezone.utc)
     prompt += f"\nCurrent UTC date: {now.date().isoformat()}. Baseline year ONLY for chronological evidence: {now.year - 1}.\n"
 
+    prompt += """
+Output citations only by selecting the exact URLs allowed by the schema.
+For each chart select source_series from the supplied evidence_catalog and
+point_indices (zero-based indices into that ONE series). Do not output points,
+unit or source_urls for charts: the backend copies those immutable fields.
+Select 1-24 distinct indices. Keep the previous-year observed baseline when
+selecting a timeline. A metric display selects exactly one point. The backend
+uses the source comparison_axis for x_label. All narration, insights and the
+question must describe the selected evidence, without changing its scope.
+"""
+    output_model = analysis_output_model(research)
+    research_input = json.dumps({"research": research.model_dump(mode="json"),
+                                 "evidence_catalog": evidence_catalog(research)}, ensure_ascii=False)
     feedback = ""
+    previous_draft = None
     for attempt in range(2):
         try:
-            result = client.responses.parse(
+            messages = [{"role": "system", "content": prompt + feedback},
+                        {"role": "user", "content": research_input}]
+            if previous_draft is not None:
+                messages.append({"role": "user", "content": "Rejected draft for repair (not evidence): " + previous_draft})
+            draft = client.responses.parse(
                 model=model, reasoning={"effort": "medium"},
-                input=[{"role": "system", "content": prompt + feedback},
-                       {"role": "user", "content": research.model_dump_json()}],
-                text_format=EventAnalysis,
+                input=messages,
+                text_format=output_model,
             ).output_parsed
-            if result is None:
+            if draft is None:
                 raise RuntimeError("The analysis response could not be parsed")
+            previous_draft = draft.model_dump_json()
+            result = materialize_analysis(draft, research)
             if not research.numeric_series:
                 source_urls = {e.url for e in research.evidence}
                 displayed_urls = result.background.source_urls + result.event_explanation.source_urls
@@ -332,6 +352,8 @@ is pending.
                 curate_known_event(research, result)
             if not valid_analysis_timeline(result.model_dump(mode="json"),
                                            [item.model_dump(mode="json") for item in research.numeric_series]):
+                if not research.numeric_series:
+                    raise ValueError("Keep charts and key_metrics empty, use one event question, and cite at least two different research source domains across the two nonempty narrative sections.")
                 raise ValueError("Copy a coherent source series exactly: all labels, values, units and groups must match; retain required timeline baseline.")
             result.binary_questions = review_questions(client, model, research, result.binary_questions, result.charts, analysis=result)
             result.event_id = research.event_id
