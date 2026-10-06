@@ -130,6 +130,8 @@ class EditorialReview(BaseModel):
     not_factual_recall: bool = False
     tradeoff_present: bool = False
     balanced_choices: bool = False
+    non_normative: bool = False
+    substantive_disagreement: bool = False
     reason: str = ""
 
 

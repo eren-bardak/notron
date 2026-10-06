@@ -2,7 +2,7 @@
 import re
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field
-from .editorial_overrides import event_tradeoff
+from .question_style import CONTESTED_QUESTION_RULES
 
 _HYPE = re.compile(r"şok|şoke|inanılmaz|bomba|skandal|gerçek yüz|saklanıyor|gizli gerçek|tıkla|kaçırma|asla inan|herkes bunu", re.I)
 
@@ -78,18 +78,15 @@ write the summary and bridge around its evidenced premise. Do not revise it.
 Use 4–12 everyday words, at most 90 characters, and one terminal question mark.
 Name the concrete subject of this event. Ask about one unresolved implication,
 interpretation, comparison or tradeoff that the article's evidence can illuminate.
-The question MUST now express a real trade-off between TWO defensible goals or
-approaches relevant to this exact occurrence. Make the tension visible in the
-question, not just in hidden metadata. For example speed versus broader agreement,
-access versus sustainable cost, or precaution versus disruption, only when the
-event supports that tension. Normative questions about choices ARE allowed.
-Both sides must have a plausible benefit and a cost; neither should be an obvious
-villain. Do not invent a dilemma or unsupported consequence to manufacture a split.
-Do not promise that answers will differ, target an identity, or ask whether a
-settled fact is true. State the evidenced tension in tradeoff_basis and set
-balanced_tradeoff=true only when both positions are reasonably defensible.
-Avoid generic 'Ne düşünüyorsun?' or 'Bu gelişme ne anlama geliyor?' when a precise
-subject is available. The question is a cover, not a survey or a command.
+The question MUST express a substantive, evidence-supported disagreement between
+two plausible interpretations or conditional consequences of this occurrence.
+Do not ask which goal should take priority, what ought to be done, or which
+policy the reader prefers. Make the tension visible in the question itself.
+Keep both readings defensible and acknowledge uncertainty; never manufacture
+a split or turn a settled fact into an opinion poll. State the actual evidence
+and limits behind the disagreement in tradeoff_basis. Set balanced_tradeoff=true
+only when the competing readings are reasonably defensible.
+Avoid generic 'Ne düşünüyorsun?' or 'Bu gelişme ne anlama geliyor?'.
 
 Do not imply guilt, hidden motives, concealed facts, a crisis, a causal effect
 or a benefit that the evidence does not establish. A question mark does not make
@@ -101,11 +98,14 @@ measurements. Preserve attribution for contested allegations.
 No shock words, all caps, exclamation marks, emoji, withheld-subject teasers,
 click instructions or exaggerated certainty. Quiet curiosity, clear language.
 Before returning, check every implied premise against the research. If a sharper
-question would imply an unsupported claim, choose a supported balanced trade-off;
+question would imply an unsupported claim, choose a supported disagreement;
 if none exists, return balanced_tradeoff=false rather than a factual quiz.
 Return 1–3 EXACT supplied source URLs and a short evidence_basis identifying the
 verified finding that makes the question relevant. These fields are internal.
 """
+    instructions += "\n" + CONTESTED_QUESTION_RULES
+    if existing_question:
+        instructions += "\nThe supplied existing_question is an immutable ballot. Preserve it exactly even if it predates the new style; apply the style policy only to newly generated questions.\n"
     import json
     result = client.responses.parse(
         model=model, reasoning={"effort": "medium"},
@@ -131,10 +131,10 @@ def refresh_cover_questions(db, client, model, event_ids, max_reviews=20):
     for row in rows:
         analysis = row.get("analysis") or {}
         research = row.get("research") or {}
-        preferred = event_tradeoff(research)
-        if not preferred and (analysis.get("editorial_review") or {}).get("tradeoff_present") is True:
-            preferred = next((q.get("question") for q in analysis.get("binary_questions", [])
-                              if q.get("question_type") == "metric" and valid_cover_question(q.get("question"))), None)
+        # Keep covers aligned with existing ballots, including qualitative events.
+        preferred = next((q.get("question") for q in analysis.get("binary_questions", [])
+                          if q.get("question_type") in {"metric", "event"}
+                          and valid_cover_question(q.get("question"))), None)
         if (analysis.get("cover_question_revision") == 2 and analysis.get("cover_tradeoff") is True
                 and valid_cover_question(analysis.get("cover_question"))
                 and analysis.get("card_story_revision") == 2 and analysis.get("card_headline")

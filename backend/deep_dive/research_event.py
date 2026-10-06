@@ -56,6 +56,10 @@ Return:
 - First define reader_question: ONE concrete question raised by THIS occurrence.
   Name the actual decision, claim, project, location or actors when useful.
   Ask what a reader needs to understand about this news, not its broad category.
+  Seek the strongest sourced disagreement about its interpretation, explanation
+  or conditional consequences. Research evidence for and against competing
+  readings without manufacturing balance. Do not ask what ought to happen,
+  which goal deserves priority or which policy the reader should support.
 - Collect zero to three verified metric candidates that directly explain THIS
   concrete event's scale, change or consequences. Prefer two or three distinct
   useful facts when available; use one or [] when there is no more relevant data.

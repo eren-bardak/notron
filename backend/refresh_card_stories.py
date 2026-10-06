@@ -10,7 +10,6 @@ from supabase import create_client
 from deep_dive.cover_question import refresh_cover_questions
 from deep_dive.analyze_event import review_questions, complete_question_text
 from deep_dive.models import EventAnalysis, ResearchBundle
-from deep_dive.editorial_overrides import event_tradeoff
 from pipeline_visibility import ready_event_ids
 from popularity import read_all
 
@@ -22,11 +21,9 @@ def refresh_tradeoffs(db, client, model, ids):
     for row in rows:
         original = row.get("analysis") or {}
         review = original.get("editorial_review") or {}
-        preferred = event_tradeoff(row.get("research") or {})
         if (review.get("tradeoff_present") is True and review.get("balanced_choices") is True
                 and all(complete_question_text(q.get("question")) for q in original.get("binary_questions", []))):
-            if not preferred or all(q.get("question") == preferred for q in original.get("binary_questions", [])):
-                continue
+            continue
         feedback = ""
         for attempt in range(2):
             try:

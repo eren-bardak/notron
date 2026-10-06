@@ -37,7 +37,7 @@ def research():
 class SingleQuestionTests(unittest.TestCase):
     def test_generation_schema_has_one_metric_and_no_additional_prompts(self):
         question = BinaryQuestion.model_validate(QUESTION)
-        self.assertEqual(ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, tradeoff_present=True, balanced_choices=True, question_intent="event_implication").binary_questions, [question])
+        self.assertEqual(ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, tradeoff_present=True, balanced_choices=True, non_normative=True, substantive_disagreement=True, question_intent="event_implication").binary_questions, [question])
         for questions in ([], [question, question]):
             with self.assertRaises(ValidationError):
                 ReviewedQuestions(binary_questions=questions)
@@ -53,7 +53,7 @@ class SingleQuestionTests(unittest.TestCase):
     def test_review_accepts_one_data_question_and_rejects_empty_or_duplicate_answers(self):
         question = BinaryQuestion.model_validate(QUESTION)
         client = Mock()
-        reviewed = ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, tradeoff_present=True, balanced_choices=True, question_intent="event_implication")
+        reviewed = ReviewedQuestions(binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, tradeoff_present=True, balanced_choices=True, non_normative=True, substantive_disagreement=True, question_intent="event_implication")
         client.responses.parse.return_value = SimpleNamespace(output_parsed=reviewed)
         self.assertEqual(review_questions(client, "test-model", research(), [question]), [question])
         with self.assertRaises(ValidationError):
@@ -64,7 +64,7 @@ class SingleQuestionTests(unittest.TestCase):
         ):
             bad = BinaryQuestion.model_validate({**QUESTION, **changes})
             client.responses.parse.return_value = SimpleNamespace(
-                output_parsed=ReviewedQuestions(binary_questions=[bad], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, tradeoff_present=True, balanced_choices=True, question_intent="event_implication"))
+                output_parsed=ReviewedQuestions(binary_questions=[bad], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, tradeoff_present=True, balanced_choices=True, non_normative=True, substantive_disagreement=True, question_intent="event_implication"))
             with self.assertRaises(ValueError):
                 review_questions(client, "test-model", research(), [question])
 
@@ -73,16 +73,69 @@ class SingleQuestionTests(unittest.TestCase):
         client = Mock()
         chart = {"chart_type": "metric", "title": "Proje kapasitesi", "unit": "kişi", "points": [{"label": "Kapasite", "value": 120}]}
         client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(
-            binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, tradeoff_present=True, balanced_choices=True, question_intent="event_implication"))
+            binary_questions=[question], event_specific=True, matches_displayed_evidence=True, evidence_relevant=True, not_factual_recall=True, tradeoff_present=True, balanced_choices=True, non_normative=True, substantive_disagreement=True, question_intent="event_implication"))
         review_questions(client, "test-model", research(), [question], [chart])
         prompt = client.responses.parse.call_args.kwargs["input"]
         import json
         self.assertEqual(json.loads(prompt[-1]["content"])["first_chart"], [chart])
         for flags in ({"event_specific": False}, {"matches_displayed_evidence": False},
                       {"evidence_relevant": False}, {"not_factual_recall": False}):
-            client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(binary_questions=[question], **({"question_intent": "event_implication", "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True, "tradeoff_present": True, "balanced_choices": True} | flags)))
+            client.responses.parse.return_value = SimpleNamespace(output_parsed=ReviewedQuestions(binary_questions=[question], **({"question_intent": "event_implication", "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True, "tradeoff_present": True, "balanced_choices": True, "non_normative": True, "substantive_disagreement": True} | flags)))
             with self.assertRaises(ValueError):
                 review_questions(client, "test-model", research(), [question], [chart])
+
+    def test_both_evidence_modes_require_nonnormative_substantive_disagreement(self):
+        for mode, question_type in (("numeric", "metric"), ("qualitative", "event")):
+            with self.subTest(mode=mode):
+                question = BinaryQuestion.model_validate({
+                    **QUESTION,
+                    "question_type": question_type,
+                    "question": "Üsküdar'daki oy dengesi yönetimde kalıcı bir değişime işaret ediyor mu?",
+                    "data_anchor": "Son turda 23 ve 19 oy çıktı; tek oylama kalıcı desteği göstermeyebilir.",
+                    "choice_labels": {
+                        "yes": "Kalıcı değişim işareti",
+                        "no": "Bu oylamaya özgü",
+                        "unsure": "Henüz belirsiz",
+                    },
+                })
+                checks = {
+                    "question_intent": "event_implication",
+                    "event_specific": True,
+                    "matches_displayed_evidence": True,
+                    "evidence_relevant": True,
+                    "not_factual_recall": True,
+                    "tradeoff_present": True,
+                    "balanced_choices": True,
+                    "non_normative": True,
+                    "substantive_disagreement": True,
+                }
+                client = Mock()
+                analysis = SimpleNamespace(evidence_mode=mode, editorial_review=None)
+                client.responses.parse.return_value = SimpleNamespace(
+                    output_parsed=ReviewedQuestions(binary_questions=[question], **checks))
+                self.assertEqual(
+                    review_questions(client, "test-model", research(), [question], analysis=analysis),
+                    [question],
+                )
+                self.assertTrue(analysis.editorial_review.non_normative)
+                self.assertTrue(analysis.editorial_review.substantive_disagreement)
+                accepted_review = analysis.editorial_review
+
+                for check in ("non_normative", "substantive_disagreement"):
+                    for missing in (False, True):
+                        with self.subTest(check=check, missing=missing):
+                            rejected_checks = dict(checks)
+                            if missing:
+                                rejected_checks.pop(check)
+                            else:
+                                rejected_checks[check] = False
+                            client.responses.parse.return_value = SimpleNamespace(
+                                output_parsed=ReviewedQuestions(
+                                    binary_questions=[question], **rejected_checks))
+                            with self.assertRaises(ValueError):
+                                review_questions(
+                                    client, "test-model", research(), [question], analysis=analysis)
+                            self.assertIs(analysis.editorial_review, accepted_review)
 
     def test_one_point_schema_keeps_observation_flags_and_rejects_coercion(self):
         from numeric_data_quality import valid_numeric_data
@@ -188,3 +241,4 @@ class SingleQuestionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

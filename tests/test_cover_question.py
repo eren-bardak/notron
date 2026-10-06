@@ -11,7 +11,7 @@ from deep_dive.cover_question import CoverQuestion, cover_patch, refresh_cover_q
 class CoverQuestionTests(unittest.TestCase):
     def setUp(self):
         self.research = {'evidence': [{'url': 'https://official.invalid/burs', 'finding': 'Yeni burs başvuruları açıldı.'}]}
-        self.result = CoverQuestion(question='Burslarda daha çok öğrenci mi, daha yüksek destek mi?', event_headline='Yeni burs programı için başvurular açıldı.', what_happened='Kurum, yeni burs programı için başvuruları açtı.', question_bridge='Öğrencilerin desteğe erişimi açısından:', balanced_tradeoff=True, tradeoff_basis='Sınırlı desteğin kapsamı ile kişi başına miktarı arasındaki tercih.', source_urls=['https://official.invalid/burs'], evidence_basis='Burs başvurularının kapsamı ve başvuru koşulları açıklanmıştır.')
+        self.result = CoverQuestion(question='Yeni burs programı öğrencilerin eğitimde kalmasını sağlar mı?', event_headline='Yeni burs programı için başvurular açıldı.', what_happened='Kurum, yeni burs programı için başvuruları açtı.', question_bridge='Öğrencilerin desteğe erişimi açısından:', balanced_tradeoff=True, tradeoff_basis='Desteğin eğitimde kalmayı artırması ile etkisinin sınırlı kalması arasındaki belirsizlik.', source_urls=['https://official.invalid/burs'], evidence_basis='Burs başvurularının kapsamı ve başvuru koşulları açıklanmıştır.')
 
     def test_format_and_sources(self):
         self.assertTrue(valid_cover_question(self.result.question))
@@ -55,3 +55,4 @@ class CoverQuestionTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
