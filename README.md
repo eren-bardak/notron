@@ -14,6 +14,8 @@ Code pushes run only offline tests. Manual **Actions → Nötron news pipeline �
 
 Economy mode still runs the real source research, independent question review, numeric-evidence checks and publication gates. It reuses acceptable saved research. Grouping uses supplied RSS text instead of an additional web search. Optional artwork/context updates wait for a full run. The limits are workload caps, not a guaranteed dollar budget; model/search costs vary. A positive API credit balance is still required for economy/full.
 
+During testing, economy mode uses `gpt-6-luna` for grouping, research, analysis and question review. It supports the existing Responses API, structured outputs, reasoning settings and web-search tool. See the [official model documentation](https://developers.openai.com/api/docs/models/gpt-6-luna) and [pricing](https://developers.openai.com/api/docs/pricing), checked 15 October 2026. Set `OPENAI_ECONOMY_MODEL` to choose another compatible model. Full mode preserves the normal `OPENAI_EVENT_MODEL` and `OPENAI_DEEP_DIVE_MODEL` configuration. Account access and live output quality still need a funded API run; offline tests do not establish these.
+
 ## Local commands
 
 ```bash

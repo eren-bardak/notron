@@ -37,12 +37,23 @@ class PipelineModeTests(unittest.TestCase):
         self.assertEqual(env["MAX_CLUSTER_EVENTS"], "3")
         self.assertEqual(env["MAX_CLUSTER_ARTICLES"], "80")
         self.assertEqual(env["NOTRON_PIPELINE_MODE"], "economy")
+        self.assertEqual(env["OPENAI_EVENT_MODEL"], "gpt-6-luna")
+        self.assertEqual(env["OPENAI_DEEP_DIVE_MODEL"], "gpt-6-luna")
 
     def test_full_mode_keeps_explicit_configuration(self):
-        with patch.dict(os.environ, {"MAX_DEEP_DIVES_PER_RUN": "7", "NOTRON_PIPELINE_MODE": "economy"}):
+        with patch.dict(os.environ, {"MAX_DEEP_DIVES_PER_RUN": "7", "NOTRON_PIPELINE_MODE": "economy",
+                                     "OPENAI_EVENT_MODEL": "configured-model", "OPENAI_DEEP_DIVE_MODEL": "configured-research-model"}):
             env = run_pipeline.pipeline_environment("full")
         self.assertEqual(env["MAX_DEEP_DIVES_PER_RUN"], "7")
         self.assertEqual(env["NOTRON_PIPELINE_MODE"], "full")
+        self.assertEqual(env["OPENAI_EVENT_MODEL"], "configured-model")
+        self.assertEqual(env["OPENAI_DEEP_DIVE_MODEL"], "configured-research-model")
+
+    def test_economy_model_override_applies_to_both_stages(self):
+        with patch.dict(os.environ, {"OPENAI_ECONOMY_MODEL": "chosen-cheap-model"}):
+            env = run_pipeline.pipeline_environment("economy")
+        self.assertEqual(env["OPENAI_EVENT_MODEL"], "chosen-cheap-model")
+        self.assertEqual(env["OPENAI_DEEP_DIVE_MODEL"], "chosen-cheap-model")
 
     def test_economy_grouping_limits_articles_and_does_not_search_or_enrich(self):
         now = datetime.now(timezone.utc).isoformat()
