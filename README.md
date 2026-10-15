@@ -1,19 +1,34 @@
 # Nötron news pipeline
 
-Real-news ingestion, clustering, popularity ranking and deep analysis for [Nötron](https://notron-earth-voices.erenbardak.chatgpt.site).
+Real-news ingestion, clustering, ranking and analysis for [Nötron](https://notron-earth-voices.erenbardak.chatgpt.site). The website is maintained separately through Sites.
 
-This repository runs the Python news pipeline. The web application is published through Sites and is not included in this runner checkout.
+## Testing costs
 
-## Running
+| Mode | Behavior | OpenAI usage |
+| --- | --- | --- |
+| `test` | Runs backend unit tests with network and `.env` loading blocked. No live database changes or new news. | None |
+| `economy` | Groups at most 80 articles into at most 3 candidates and researches at most 1 event. Skips duplicate enrichment and optional cover/photo/background passes. | Paid, bounded workload |
+| `full` | Runs the full pipeline, researching up to 20 events. | Paid |
 
-Required repository Actions secrets: `SUPABASE_URL`, `SUPABASE_KEY` (server write key), and `OPENAI_API_KEY`. Use the same Supabase project as the website. Never commit secret values or `.env` files.
+Code pushes run only offline tests. Manual **Actions → Nötron news pipeline → Run workflow** defaults to `test`; select `economy` when you need real news. Daily updates at 09:00 Türkiye use `economy` during testing. GitHub may delay scheduled starts. `full` must be chosen explicitly in Actions.
 
-The workflow runs every six hours (00:17, 06:17, 12:17, 18:17 Europe/Istanbul), on pipeline-code changes to main, or manually from Actions. Scheduled starts can be delayed by GitHub.
+Economy mode still runs the real source research, independent question review, numeric-evidence checks and publication gates. It reuses acceptable saved research. Grouping uses supplied RSS text instead of an additional web search. Optional artwork/context updates wait for a full run. The limits are workload caps, not a guaranteed dollar budget; model/search costs vary. A positive API credit balance is still required for economy/full.
 
-Order: `rss_fetcher.py` → `clustering_news_enriched.py` → `update_event_popularity_v02.py` → `generate_event_deep_dives.py`.
+During testing, economy mode uses `gpt-6-luna` for grouping, research, analysis and question review. It supports the existing Responses API, structured outputs, reasoning settings and web-search tool. See the [official model documentation](https://developers.openai.com/api/docs/models/gpt-6-luna) and [pricing](https://developers.openai.com/api/docs/pricing), checked 15 October 2026. Set `OPENAI_ECONOMY_MODEL` to choose another compatible model. Full mode preserves the normal `OPENAI_EVENT_MODEL` and `OPENAI_DEEP_DIVE_MODEL` configuration. Account access and live output quality still need a funded API run; offline tests do not establish these.
 
-Positive, neutral and negative events are welcome. Only the last 36 hours qualify. Gündem displays at most three eligible events; remaining qualifying events appear in Diğer Haberler.
+## Local commands
 
-Publication also requires a sourced observed point from the previous UTC calendar year in every time series and displayed timeline, with at least one timeline shown. Missing historical baselines set `enough_data=false` and hide the event, including previously ready events. `python3 backend/generate_event_deep_dives.py --validate-only` applies this gate to saved data without research calls.
+```bash
+pip install -r backend/requirements.txt
+python backend/run_pipeline.py --mode test
+python backend/run_pipeline.py --mode economy
+python backend/run_pipeline.py --mode full
+```
 
-See [backend/POPULARITY.md](backend/POPULARITY.md) for scoring and qualification rules.
+The CLI defaults to `full` for compatibility with existing explicit local runners. Use `--check` to validate configuration without API requests or database changes.
+
+Live modes need `SUPABASE_URL`, `SUPABASE_KEY` and `OPENAI_API_KEY`. In GitHub, keep them in repository Actions secrets. Never commit `.env` files or credential values. The offline checks job receives no repository secrets.
+
+Pipeline order: RSS → clustering → popularity → research/publication. Current events and evidence must satisfy the existing freshness, source and editorial rules; economy mode does not publish test fixtures as news.
+
+See [backend/POPULARITY.md](backend/POPULARITY.md) for scoring rules.
