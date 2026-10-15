@@ -4,23 +4,50 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
+      - 'tests/**'
       - 'config/popularity.json'
       - '.github/workflows/news-pipeline.yml'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'test: no API calls; economy: research 1 real event; full: up to 20'
+        type: choice
+        required: true
+        default: test
+        options: [test, economy, full]
   schedule:
-    # Daily at 06:00 UTC = 09:00 Türkiye (UTC+3); GitHub may delay starts.
+    # Daily at 06:00 UTC = 09:00 Türkiye. Economy mode during testing.
     - cron: '0 6 * * *'
 permissions:
   contents: read
-concurrency:
-  group: notron-production-news
-  cancel-in-progress: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[repair-event-75]') }}
 jobs:
+  checks:
+    name: Offline checks (no OpenAI calls)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements.txt
+      - name: Test with network and dotenv loading disabled
+        run: python backend/run_pipeline.py --mode test
   refresh:
-    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[card-copy]')
+    name: Live news refresh
+    needs: checks
+    # Code pushes and the default manual test never start paid work.
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode != 'test')
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    concurrency:
+      group: notron-production-news
+      cancel-in-progress: false
     env:
+      PIPELINE_MODE: ${{ inputs.mode == 'full' && 'full' || 'economy' }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -32,38 +59,12 @@ jobs:
           python-version: '3.13'
           cache: pip
           cache-dependency-path: backend/requirements.txt
-      - name: Validate runner configuration
-        run: python backend/run_pipeline.py --check
       - name: Install dependencies
         run: python -m pip install -r backend/requirements.txt
-      - name: Verify scoring and publication rules
-        run: python -m unittest discover -s tests -p 'test_*.py'
-      - name: 1 · Fetch RSS news
-        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[editorial-refresh]')
-        working-directory: backend
-        timeout-minutes: 45
-        run: python rss_fetcher.py
-      - name: 2 · Cluster and enrich events
-        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[editorial-refresh]')
-        working-directory: backend
-        timeout-minutes: 30
-        run: python clustering_news_enriched.py
-      - name: 3 · Update popularity
-        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[editorial-refresh]')
-        working-directory: backend
-        timeout-minutes: 15
-        run: python update_event_popularity_v02.py
-      - name: 4 · Research and publish deep dives
-        working-directory: backend
-        timeout-minutes: 120
-        env:
-          EDITORIAL_PRIORITY: ${{ contains(github.event.head_commit.message, '[repair-event-75]') && '75' || '' }}
-        run: |
-          if [ -n "$EDITORIAL_PRIORITY" ]; then
-            python generate_event_deep_dives.py --prioritize-event "$EDITORIAL_PRIORITY"
-          else
-            python generate_event_deep_dives.py
-          fi
+      - name: Validate runner configuration
+        run: python backend/run_pipeline.py --mode "$PIPELINE_MODE" --check
+      - name: Fetch, group, research and publish
+        run: python backend/run_pipeline.py --mode "$PIPELINE_MODE"
       - name: Export public evidence and questions for review
         if: always()
         working-directory: backend

@@ -23,7 +23,10 @@ def recent_news_cutoff(now=None):
 load_dotenv()
 
 MODEL = os.getenv("OPENAI_EVENT_MODEL", "gpt-5.4-mini")
-MIN_SOURCES, MIN_CONFIDENCE, MAX_EVENTS = 2, 50, 20
+ECONOMY_MODE = os.getenv("NOTRON_PIPELINE_MODE") == "economy"
+MIN_SOURCES, MIN_CONFIDENCE = 2, 50
+MAX_EVENTS = max(1, min(3 if ECONOMY_MODE else 20, int(os.getenv("MAX_CLUSTER_EVENTS", "20"))))
+ARTICLE_LIMIT = max(10, min(80 if ECONOMY_MODE else 300, int(os.getenv("MAX_CLUSTER_ARTICLES", "300"))))
 
 HEADERS = {
     "User-Agent": (
@@ -415,7 +418,7 @@ def main():
     db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
     # BUNU BURAYA EKLE
     source_leanings = load_source_leanings(db)
-    ai = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    ai = OpenAI(api_key=os.environ["OPENAI_API_KEY"], max_retries=0 if ECONOMY_MODE else 2)
     now = datetime.now(timezone.utc)
     cutoff = recent_news_cutoff(now).isoformat()
 
@@ -428,7 +431,7 @@ def main():
         .gte("published_at", cutoff)
         .lte("published_at", now.isoformat())
         .order("published_at", desc=True)
-        .limit(300)
+        .limit(ARTICLE_LIMIT)
         .execute()
         .data
     )
@@ -439,7 +442,7 @@ def main():
         .gte("published_at", cutoff)
         .lte("published_at", now.isoformat())
         .order("published_at", desc=True)
-        .limit(300)
+        .limit(ARTICLE_LIMIT)
         .execute()
         .data
     )
@@ -448,6 +451,9 @@ def main():
         int(item["id"]): item
         for item in new_rows + context_rows
     }.values())
+    if ECONOMY_MODE:
+        # New rows come first, so context cannot consume the limited input budget.
+        online_news = online_news[:ARTICLE_LIMIT]
     online_news.sort(
         key=lambda item: item.get("published_at") or "",
         reverse=True,
@@ -541,8 +547,11 @@ def main():
         print("No new news. LLM call skipped.")
 
     else:
+        search_instruction = ("Use only the supplied articles for grouping. Final research verifies the sources."
+                              if ECONOMY_MODE else "Web-search possible events to verify facts and check contradictions.")
+        search_options = {} if ECONOMY_MODE else {"tools": [{"type": "web_search"}], "tool_choice": "required"}
         prompt = f"""
-    Web-search possible events to verify facts and check contradictions.
+    {search_instruction}
     Group Turkish news only when they describe the same concrete occurrence.
     Welcome positive, neutral and negative developments equally, including
     scientific breakthroughs, public improvements, culture, celebrations and
@@ -570,8 +579,7 @@ def main():
                 answer = ai.responses.parse(
                     model=MODEL,
                     reasoning={"effort": "low"},
-                    tools=[{"type": "web_search"}],
-                    tool_choice="required",
+                    **search_options,
                     input=[
                         {
                             "role": "system",
@@ -586,7 +594,7 @@ def main():
                         },
                     ],
                     text_format=Result,
-                    max_output_tokens=12000,
+                    max_output_tokens=6000 if ECONOMY_MODE else 12000,
                 ).output_parsed
                 break
             except ValidationError:
@@ -666,6 +674,7 @@ def main():
         )
 
     print(f"Valid clusters: {len(clusters)}")
+    clusters = clusters[:MAX_EVENTS]
 
     # Events successfully inserted or updated during this run.
     saved_events = []
@@ -740,13 +749,13 @@ def main():
         })
 
     # Fill location, category and background after all events are registered.
-    enrich_saved_events(
-        ai,
-        db,
-        saved_events,
-    )
+    if not ECONOMY_MODE:
+        enrich_saved_events(ai, db, saved_events)
+    else:
+        print("Economy mode: duplicate background enrichment skipped; final research still required.")
 
     # The event_news database trigger updates clustered_at automatically.
 
 if __name__ == "__main__":
     main()
+
