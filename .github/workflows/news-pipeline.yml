@@ -7,17 +7,23 @@ on:
       - 'tests/**'
       - 'config/popularity.json'
       - '.github/workflows/news-pipeline.yml'
+      - 'render.yaml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'tests/**'
+      - 'config/popularity.json'
+      - '.github/workflows/news-pipeline.yml'
+      - 'render.yaml'
   workflow_dispatch:
     inputs:
       mode:
-        description: 'test: no API calls; economy: research 1 real event; full: up to 20'
+        description: 'test: no API calls; economy: daily three-story budget; full: uncapped legacy runner'
         type: choice
         required: true
         default: test
         options: [test, economy, full]
-  schedule:
-    # Daily at 06:00 UTC = 09:00 Türkiye. Economy mode during testing.
-    - cron: '0 6 * * *'
+# The daily schedule moves to Render. Merge this cutover only after Render is ready.
 permissions:
   contents: read
 jobs:
@@ -40,7 +46,7 @@ jobs:
     name: Live news refresh
     needs: checks
     # Code pushes and the default manual test never start paid work.
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode != 'test')
+    if: github.event_name == 'workflow_dispatch' && inputs.mode != 'test'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     concurrency:

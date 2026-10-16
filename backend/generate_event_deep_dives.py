@@ -18,13 +18,14 @@ from numeric_data_quality import valid_analysis_timeline, has_event_evidence
 from pipeline_visibility import enforce_previous_year_gate, publish_ready_events, valid_questions, valid_numeric_data
 from popularity import POLICY, current_score
 from editorial_quality import RESEARCH_REVISION, current_editorial
+from daily_budget import budget_client, coverage_rank, ledger, BudgetError
 
 
 load_dotenv()
 
 EVENT_WINDOW_HOURS = POLICY["event_window_hours"]
 ECONOMY_MODE = os.getenv("NOTRON_PIPELINE_MODE") == "economy"
-MAX_EVENTS_PER_RUN = max(1, min(1 if ECONOMY_MODE else 20, int(os.getenv("MAX_DEEP_DIVES_PER_RUN", "20"))))
+MAX_EVENTS_PER_RUN = max(1, min(3 if ECONOMY_MODE else 20, int(os.getenv("MAX_DEEP_DIVES_PER_RUN", "20"))))
 
 
 def main() -> None:
@@ -52,7 +53,7 @@ def main() -> None:
 
     events = (
         db.table("events")
-        .select("id,created_at,numeric_data,enough_data,is_visible,problem_supported,source_count,popularity_score,popularity_updated_at")
+        .select("id,created_at,numeric_data,enough_data,is_visible,problem_supported,source_count,article_count,popularity_score,popularity_updated_at")
         .gte("created_at", cutoff.isoformat())
         .lte("created_at", datetime.now(timezone.utc).isoformat())
         .order("popularity_score", desc=True)
@@ -68,7 +69,8 @@ def main() -> None:
     # Previously ready events must disappear even if their replacement research fails.
     rejected = enforce_previous_year_gate(db, events, stored)
     print(f"Revalidated previous_year={datetime.now(timezone.utc).year - 1} | rejected={len(rejected)}", flush=True)
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], max_retries=0 if ECONOMY_MODE else 2)
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], max_retries=0 if ECONOMY_MODE else 2, timeout=180)
+    client = budget_client(client, db)
     stored_by_id = {int(row["event_id"]): row for row in stored}
     # Reuse only analyses reviewed under the current editorial policy. Old ballot rows remain stored.
     ready = {int(row["event_id"]) for row in stored if row.get("status") == "ready" and current_editorial(row.get("analysis")) and (row["analysis"].get("editorial_review") or {}).get("tradeoff_present") is True and (row["analysis"].get("editorial_review") or {}).get("balanced_choices") is True and valid_questions(row.get("analysis")) and row["analysis"].get("schema_version") == 2 and row["analysis"].get("question_revision") in (2, 3)}
@@ -78,6 +80,12 @@ def main() -> None:
         if event not in pending and any(not complete_question_text(q.get("question")) for q in old_questions):
             pending.append(event)
     pending.sort(key=lambda event: (int(event["id"]) != args.prioritize_event, not event.get("is_visible", False)))
+    selected_ids = []
+    if ECONOMY_MODE:
+        ranked = sorted(eligible, key=coverage_rank)
+        selected_ids = ledger(db, 'select', p_event_ids=[int(e['id']) for e in ranked[:3]])['event_ids']
+        # Reuse this day's selection after a failed run; never buy a second batch.
+        pending = [e for e in ranked if int(e['id']) in selected_ids and e in pending]
     failures = 0
     # Update existing covers first; missing-data research may take much longer.
     if not ECONOMY_MODE:
@@ -152,6 +160,8 @@ def main() -> None:
                 f"charts={len(analysis.charts)}"
             )
 
+        except BudgetError:
+            raise
         except Exception as error:
             # A temporary API failure must not permanently reject the event.
             print(f"Deep dive failed | event={event_id} | error={error}")
@@ -163,6 +173,11 @@ def main() -> None:
         # Photo review also covers already-ready events and does not alter question IDs.
         refresh_event_covers(db, client, model, ids, max_reviews=MAX_EVENTS_PER_RUN)
     published = publish_ready_events(db)
+    if ECONOMY_MODE:
+        verified = set(selected_ids).intersection(published)
+        print(f'Daily batch verification | target=3 | published={len(verified)}', flush=True)
+        if len(verified) != 3:
+            raise RuntimeError(f'Daily batch incomplete: {len(verified)}/3 stories passed existing publication checks.')
     background_failures = 0 if ECONOMY_MODE else refresh_background_contexts(db, client, model, published)
     if ECONOMY_MODE:
         print("Economy mode: optional cover/photo/background passes skipped; core editorial checks retained.")

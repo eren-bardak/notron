@@ -11,6 +11,7 @@ from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
 from supabase import create_client
 from popularity import POLICY
+from daily_budget import budget_client
 
 NEWS_WINDOW_HOURS = POLICY["event_window_hours"]
 
@@ -26,7 +27,7 @@ MODEL = os.getenv("OPENAI_EVENT_MODEL", "gpt-5.4-mini")
 ECONOMY_MODE = os.getenv("NOTRON_PIPELINE_MODE") == "economy"
 MIN_SOURCES, MIN_CONFIDENCE = 2, 50
 MAX_EVENTS = max(1, min(3 if ECONOMY_MODE else 20, int(os.getenv("MAX_CLUSTER_EVENTS", "20"))))
-ARTICLE_LIMIT = max(10, min(80 if ECONOMY_MODE else 300, int(os.getenv("MAX_CLUSTER_ARTICLES", "300"))))
+ARTICLE_LIMIT = max(10, min(300, int(os.getenv("MAX_CLUSTER_ARTICLES", "300"))))
 
 HEADERS = {
     "User-Agent": (
@@ -418,7 +419,8 @@ def main():
     db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
     # BUNU BURAYA EKLE
     source_leanings = load_source_leanings(db)
-    ai = OpenAI(api_key=os.environ["OPENAI_API_KEY"], max_retries=0 if ECONOMY_MODE else 2)
+    ai = OpenAI(api_key=os.environ["OPENAI_API_KEY"], max_retries=0 if ECONOMY_MODE else 2, timeout=180)
+    ai = budget_client(ai, db)
     now = datetime.now(timezone.utc)
     cutoff = recent_news_cutoff(now).isoformat()
 
@@ -538,6 +540,13 @@ def main():
         }
         for item in news
     ]
+    if ECONOMY_MODE and len(json.dumps(payload, ensure_ascii=False).encode('utf-8')) > 140000:
+        # Keep all candidate headlines/publishers; original text remains in Supabase
+        # for the independent research pass. Do not discard less prolific sources.
+        for item in payload:
+            item['description'] = ''
+            item['title'] = item['title'][:160]
+            item['source'] = item['source'][:60]
 
 # ============================================================
 # CLUSTER WITH LLM
@@ -557,6 +566,8 @@ def main():
     scientific breakthroughs, public improvements, culture, celebrations and
     sports achievements. A problem or adverse angle is never required.
     Do not manufacture harm, conflict or criticism around good news.
+    Rank candidates by breadth of distinct publishers, then supporting article
+    count. Return the three most widely covered eligible occurrences first.
 
     Return at most {MAX_EVENTS} strongest events. Keep each summary under 80 words.
 
@@ -674,6 +685,7 @@ def main():
         )
 
     print(f"Valid clusters: {len(clusters)}")
+    clusters.sort(key=lambda item: (-len(item[3]), -len(item[1]), -item[0].confidence))
     clusters = clusters[:MAX_EVENTS]
 
     # Events successfully inserted or updated during this run.

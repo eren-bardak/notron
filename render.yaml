@@ -1,0 +1,24 @@
+# Activate only after daily_budget.sql and a successful funded test run.
+services:
+  - type: cron
+    name: notron-daily-news
+    runtime: python
+    repo: https://github.com/eren-bardak/notron
+    branch: main
+    region: frankfurt
+    plan: 0.5c-512mb
+    schedule: "0 7 * * *" # 10:00 Europe/Istanbul, UTC+3
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: timeout --signal=TERM --kill-after=10s 20m python backend/run_pipeline.py --mode economy
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.7
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
