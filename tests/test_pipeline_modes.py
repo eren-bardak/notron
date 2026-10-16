@@ -30,12 +30,21 @@ class PipelineModeTests(unittest.TestCase):
              patch.object(run_pipeline.subprocess, "run", return_value=SimpleNamespace(returncode=1)):
             self.assertEqual(run_pipeline.main(), 1)
 
+    def test_completed_day_does_not_start_any_pipeline_step(self):
+        with patch.dict(os.environ, {'SUPABASE_URL':'test','SUPABASE_KEY':'test','OPENAI_API_KEY':'test'}), \
+             patch.object(sys, 'argv', ['run_pipeline.py','--mode','economy']), \
+             patch('supabase.create_client'), \
+             patch('daily_budget.ledger', return_value={'ok':True,'skip':True}), \
+             patch.object(run_pipeline.subprocess, 'run') as run:
+            self.assertEqual(run_pipeline.main(), 0)
+        run.assert_not_called()
+
     def test_economy_caps_override_larger_existing_settings(self):
         with patch.dict(os.environ, {"MAX_DEEP_DIVES_PER_RUN": "20", "MAX_CLUSTER_EVENTS": "20"}):
             env = run_pipeline.pipeline_environment("economy")
-        self.assertEqual(env["MAX_DEEP_DIVES_PER_RUN"], "1")
+        self.assertEqual(env["MAX_DEEP_DIVES_PER_RUN"], "3")
         self.assertEqual(env["MAX_CLUSTER_EVENTS"], "3")
-        self.assertEqual(env["MAX_CLUSTER_ARTICLES"], "80")
+        self.assertEqual(env["MAX_CLUSTER_ARTICLES"], "300")
         self.assertEqual(env["NOTRON_PIPELINE_MODE"], "economy")
         self.assertEqual(env["OPENAI_EVENT_MODEL"], "gpt-6-luna")
         self.assertEqual(env["OPENAI_DEEP_DIVE_MODEL"], "gpt-6-luna")
@@ -75,6 +84,7 @@ class PipelineModeTests(unittest.TestCase):
              patch.object(clustering, "create_client", return_value=db), \
              patch.object(clustering, "load_source_leanings", return_value={}), \
              patch.object(clustering, "OpenAI", return_value=client) as factory, \
+             patch.object(clustering, "budget_client", side_effect=lambda client, db: client), \
              patch.object(clustering, "enrich_saved_events") as enrich:
             clustering.main()
         request = client.responses.parse.call_args.kwargs
@@ -83,7 +93,7 @@ class PipelineModeTests(unittest.TestCase):
         self.assertEqual(factory.call_args.kwargs["max_retries"], 0)
         enrich.assert_not_called()
 
-    def test_economy_researches_one_event_and_keeps_core_publication(self):
+    def test_economy_does_not_report_an_incomplete_batch_as_success(self):
         now = datetime.now(timezone.utc).isoformat()
         events = [{"id": i, "created_at": now, "source_count": 2,
                    "popularity_score": 100, "popularity_updated_at": now} for i in (1, 2)]
@@ -103,6 +113,8 @@ class PipelineModeTests(unittest.TestCase):
              patch.object(research_pipeline, "MAX_EVENTS_PER_RUN", 1), \
              patch.object(research_pipeline, "create_client", return_value=db), \
              patch.object(research_pipeline, "OpenAI"), \
+             patch.object(research_pipeline, "budget_client", side_effect=lambda client, db: client), \
+             patch.object(research_pipeline, "ledger", return_value={"event_ids": [1, 2]}), \
              patch.object(research_pipeline, "enforce_previous_year_gate", return_value=[]), \
              patch.object(research_pipeline, "load_event", return_value={}), \
              patch.object(research_pipeline, "research_event", return_value=bundle) as research, \
@@ -113,7 +125,8 @@ class PipelineModeTests(unittest.TestCase):
              patch.object(research_pipeline, "refresh_event_covers") as photos, \
              patch.object(research_pipeline, "refresh_background_contexts") as backgrounds, \
              patch.object(research_pipeline, "publish_ready_events", return_value=[1]) as publish:
-            research_pipeline.main()
+            with self.assertRaisesRegex(RuntimeError, '1/3 stories'):
+                research_pipeline.main()
         self.assertEqual(research.call_count, 1)
         self.assertEqual(analyze.call_count, 1)
         self.assertEqual(save.call_count, 1)
@@ -121,3 +134,35 @@ class PipelineModeTests(unittest.TestCase):
         covers.assert_not_called()
         photos.assert_not_called()
         backgrounds.assert_not_called()
+
+    def test_economy_researches_three_broadest_stories_and_verifies_publication(self):
+        now = datetime.now(timezone.utc).isoformat()
+        events = [{'id':i,'created_at':now,'source_count':i+1,'article_count':i*3,
+                   'popularity_score':100,'popularity_updated_at':now} for i in (1,2,3,4)]
+        db = Mock()
+        def table(name):
+            query = Mock()
+            for method in ('select','gte','lte','order','in_','limit'):
+                getattr(query, method).return_value = query
+            query.execute.return_value = SimpleNamespace(data=events if name=='events' else [])
+            return query
+        db.table.side_effect = table
+        with patch.dict(os.environ, {'SUPABASE_URL':'test','SUPABASE_KEY':'test','OPENAI_API_KEY':'test'}), \
+             patch.object(sys,'argv',['generate_event_deep_dives.py']), \
+             patch.object(research_pipeline,'ECONOMY_MODE',True), \
+             patch.object(research_pipeline,'MAX_EVENTS_PER_RUN',3), \
+             patch.object(research_pipeline,'create_client',return_value=db), \
+             patch.object(research_pipeline,'OpenAI'), \
+             patch.object(research_pipeline,'budget_client',side_effect=lambda client, db: client), \
+             patch.object(research_pipeline,'ledger',return_value={'event_ids':[4,3,2]}) as select, \
+             patch.object(research_pipeline,'enforce_previous_year_gate',return_value=[]), \
+             patch.object(research_pipeline,'load_event',return_value={}), \
+             patch.object(research_pipeline,'research_event',side_effect=lambda client, model, event_id, payload: Mock(event_id=event_id,numeric_series=[],metric_candidates=[])) as research, \
+             patch.object(research_pipeline,'has_event_evidence',return_value=True), \
+             patch.object(research_pipeline,'analyze_event',side_effect=lambda client, model, bundle: SimpleNamespace(event_id=bundle.event_id,charts=[])), \
+             patch.object(research_pipeline,'save_analysis') as save, \
+             patch.object(research_pipeline,'publish_ready_events',return_value=[2,3,4]):
+            research_pipeline.main()
+        self.assertEqual(select.call_args.kwargs['p_event_ids'], [4,3,2])
+        self.assertEqual([call.args[2] for call in research.call_args_list], [4,3,2])
+        self.assertEqual(save.call_count, 3)
