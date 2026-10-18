@@ -16,7 +16,7 @@ def pipeline_environment(mode):
     env['NOTRON_PIPELINE_MODE'] = mode
     if mode == 'economy':
         model = env.get('OPENAI_ECONOMY_MODEL') or 'gpt-6-luna'
-        env.update(MAX_CLUSTER_ARTICLES='300', MAX_CLUSTER_EVENTS='3', MAX_DEEP_DIVES_PER_RUN='3',
+        env.update(MAX_CLUSTER_ARTICLES='300', MAX_CLUSTER_EVENTS='18', MAX_DEEP_DIVES_PER_RUN='3',
                    OPENAI_EVENT_MODEL=model, OPENAI_DEEP_DIVE_MODEL=model)
     return env
 
@@ -32,7 +32,7 @@ def main():
             return 0
         # Never load .env or pass live credentials into offline tests.
         env = dict(os.environ)
-        for key in ('OPENAI_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY', 'SUPABASE_ANON_KEY'):
+        for key in ('OPENAI_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY', 'SUPABASE_ANON_KEY', 'X_BEARER_TOKEN'):
             env.pop(key, None)
         return subprocess.run(
             [sys.executable, str(BACKEND / 'offline_tests.py')],
@@ -86,7 +86,7 @@ def main():
             print(f'Running {script}', flush=True)
             remaining = max(1, deadline - time.monotonic()) if args.mode == 'economy' else 9000
             subprocess.run([sys.executable, str(BACKEND / script)], cwd=BACKEND, env=env, check=True, timeout=remaining)
-        outcome = {'complete': True, 'reason': 'three selected stories passed publication checks'}
+        outcome = {'complete': True, 'reason': 'selected cross-spectrum stories passed publication checks'}
     except Exception as error:
         outcome['reason'] = type(error).__name__
         print(f'Pipeline stopped: {error}', file=sys.stderr)

@@ -1,0 +1,8 @@
+[
+  {"id":"politics","label":"Siyaset"},
+  {"id":"finance","label":"Finans"},
+  {"id":"sports","label":"Spor"},
+  {"id":"magazine","label":"Magazin"},
+  {"id":"technology","label":"Teknoloji"},
+  {"id":"entertainment","label":"Eğlence"}
+]

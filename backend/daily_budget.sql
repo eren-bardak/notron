@@ -89,7 +89,7 @@ begin
   end if;
   if batch.halted then return jsonb_build_object('ok', false, 'reason', 'budget halted'); end if;
   if p_operation = 'reserve' then
-    if p_request_id is null or p_amount is null or p_amount not in (70000,900000) then
+    if p_request_id is null or p_amount is null or p_amount not in (5000,70000,900000) then
       return jsonb_build_object('ok', false, 'reason', 'invalid reservation');
     end if;
     select * into reservation from public.notron_api_reservations where id = p_request_id;

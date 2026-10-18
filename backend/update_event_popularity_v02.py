@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from supabase import create_client
 from popularity import POLICY, normalize, parse_time, read_all, score_event, source_side
 from google_trends import event_trend_bonus, fetch_trends
+from event_catalog import balanced_event, category_id
+from x_signals import XCounts, build_query, signal_points
 
 
 def main():
@@ -14,7 +16,7 @@ def main():
     db = create_client(os.environ['SUPABASE_URL'], os.environ['SUPABASE_KEY'])
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=POLICY['event_window_hours'])
-    events = read_all(db, 'events', 'id,created_at,problem_supported')
+    events = read_all(db, 'events', 'id,title,category,data,created_at,problem_supported')
     events = [e for e in events if (created := parse_time(e.get('created_at'))) and cutoff <= created <= now]
     if not events:
         print('No recent events. Scoring skipped.')
@@ -44,6 +46,7 @@ def main():
         if article and int(link['event_id']) in articles_by_event:
             articles_by_event[int(link['event_id'])].append(article)
     results = []
+    x_counts = XCounts(db, now)
     for event in events:
         result = score_event(event, links, news_by_id, sides, micro, comments, answers, analysis_by_id.get(int(event['id'])), now)
         trend = event_trend_bonus(articles_by_event[int(event['id'])], trends, now)
@@ -51,6 +54,20 @@ def main():
             result['score'] += trend['points']
             print('GOOGLE_TRENDS_MATCH ' + json.dumps({'event_id': event['id'], **trend}, ensure_ascii=False))
         results.append((event, result))
+    # Spend only on the strongest cross-spectrum candidates. One counts request
+    # includes all 24 hourly buckets; individual posts/likes are never purchased.
+    results.sort(key=lambda pair: (-pair[1]['score'], int(pair[0]['id'])))
+    for event, result in results:
+        balanced = balanced_event({'source_count':result['source_count'],
+            'left_source_count':len(result['side_sources']['left']),
+            'right_source_count':len(result['side_sources']['right'])})
+        metadata = event.get('data') if isinstance(event.get('data'), dict) else {}
+        terms = metadata.get('x_query_terms')
+        signal = x_counts.measure(terms, metadata.get('x_signal')) if balanced else None
+        if signal is not None:
+            metadata = {**metadata, 'x_signal':signal}
+        result['catalog_data'] = metadata
+        result['score'] += signal_points(metadata.get('x_signal'), build_query(terms), now) if balanced else 0
     results.sort(key=lambda pair: (-pair[1]['score'], int(pair[0]['id'])))
     print('RANK | SCORE | SOURCES | BALLOTS | EVENT')
     for rank, (event, result) in enumerate(results, 1):
@@ -60,6 +77,8 @@ def main():
                 'center_source_count': len(result['side_sources']['center']),
                 'right_source_count': len(result['side_sources']['right']),
                 'comment_count': result['writer_count'], 'micro_comment_count': result['micro_count']}
+        data.update(category=category_id(event.get('category'), event.get('title', '')),
+                    data=result['catalog_data'])
         db.table('events').update(data).eq('id', event['id']).execute()
         print(f"{rank:4} | {result['score']:7.2f} | {result['source_count']:7} | {result['vote_count']:7} | {event['id']}")
 
