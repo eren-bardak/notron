@@ -8,7 +8,7 @@ CATEGORY_IDS = {row['id'] for row in CATEGORIES}
 
 
 def category_id(value, title=''):
-    if value in CATEGORY_IDS:
+    if value in CATEGORY_IDS or value == 'general':
         return value
     aliases = {'economy': 'finance', 'technology_science': 'technology', 'culture': 'entertainment'}
     if value in aliases:
@@ -20,11 +20,12 @@ def category_id(value, title=''):
         ('finance', ('enflasyon', 'faiz', 'borsa', 'dolar', 'butce', 'ucret', 'ekonomi', 'ihracat')),
         ('magazine', ('magazin', 'bosandi', 'evlendi', 'unlu oyuncu')),
         ('entertainment', ('konser', 'festival', 'sinema', 'muzik', 'tiyatro', 'dizi')),
+        ('politics', ('tbmm', 'cumhurbaskani', 'bakan', 'belediye baskani', 'secim', 'chp', 'akp', 'ak parti', 'anayasa', 'meclis', 'disisleri', 'koalisyon')),
     ):
         if any(term in words for term in terms):
             return category
-    # Siyaset also covers public affairs, institutions, justice and public safety.
-    return 'politics'
+    # Unclassified general news stays in Gündem without inventing a seventh tab.
+    return 'general'
 
 
 def balanced_articles(articles, sides):

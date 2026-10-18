@@ -8,7 +8,6 @@
   "display_threshold_min": 0.25,
   "display_target_count": 18,
   "category_target_count": 3,
-  "agenda_limit": 12,
   "primary_limit": 3,
   "event_window_hours": 24,
   "publisher_breadth_points": 3,

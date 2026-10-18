@@ -102,7 +102,7 @@ The clustering gates are: last 24 hours, at least two distinct publishers,
 confidence at least 50, and articles referring to the same concrete occurrence.
 Positive, neutral and negative developments qualify equally. There is no problem
 requirement; legacy problem fields are descriptive metadata only. A new cluster must include
-at least one new article. Clustering can consider up to 20 events in a run.
+at least one new article. Clustering returns qualifying events without a fixed output count. Economy mode bounds the model input to 300 articles, sampled across publishers and categories; output remains bounded by the paid request token envelope.
 
 The public feed requires current, deduplicated left AND right coverage and an
 occurrence created within 24 hours. A reviewed analysis unlocks voting and voices;
@@ -117,7 +117,7 @@ threshold and the overall threshold. One-sided, duplicate, stale, or unqualified
 stories never lower or inflate the threshold. Sparse categories therefore retain
 smaller corroborated stories even when another category dominates the news.
 
-Gündem displays up to 12 qualified events in score order, with event ID breaking
+Gündem displays all events passing the dynamic threshold in score order, with event ID breaking
 ties. Every qualified event also appears in its own category, including stories
 already in Gündem. The three-deep-dive daily budget is separate from the display
 limit and remains unchanged. No extra model call is needed to compute thresholds.
