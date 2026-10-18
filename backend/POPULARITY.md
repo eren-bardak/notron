@@ -7,20 +7,19 @@ These are initial product settings, not weights calibrated against real traffic.
 
 | Contribution | Points | Rule |
 | --- | ---: | --- |
-| P: cross-group coverage | 20 | Once, when coverage first reaches any two known groups: left, center, right |
-| R: article | 5 | Each unique linked article, aged from its original publication time |
-| Q: micro-comment | 1 | One active scored micro-comment per account per event |
-| Q: ballot | 1 | One scored ballot per account per event, with at least one valid answer |
-| S: Writer comment | 3 | One active scored Writer comment per account per event |
-| D: registered publisher breadth | 3 each, at most 12 | Second through fifth distinct registered publisher, once each, aged from their first article |
-| G: Google Trends | At most 10 | Strongest recent Türkiye trend linked to an event's actual source article |
+| Independent publisher articles | 4, then 2, then 1 | First three unique articles per publisher; further repeats add zero |
+| Left AND right coverage | 8 | Once, aged from the first actual left/right crossing; center cannot substitute |
+| Comments | 0.5 | Earliest active comment per account across micro/Writer, first 20 accounts |
+| Ballots | 0.25 | Earliest valid ballot per account, first 20 accounts |
+| Google Trends | At most 4 | Exact linked-article match only |
+| X | At most 8 | Log-scaled post volume (5) and posting speed (3); never inferred likes |
 
-P is worth four articles, so reaching different media audiences matters. R keeps
-reporting central. Q rewards participation without letting rapid, repeated actions
-dominate. S gives the longer Writer contribution more weight than a micro-comment.
-All answer directions receive equal points; skipping does not score. Answering
-three questions still counts as one event ballot. Micro-comment protection
-reactions are not event ballots and do not add ranking points.
+Publisher breadth is already represented by article weights, so no additional
+publisher bonus is stacked. Two new publishers with left/right coverage start
+at 16 points. Twenty qualifying comments plus twenty ballots contribute at most
+15 points before decay. The caps limit ranking credit; valid discussion remains
+stored. Direction of votes never changes their weight. Repeated actions and
+sample content do not earn additional credit.
 
 Legacy Writer comments with no account identity earn no ranking points. The
 scorer can read older comment tables without stopping the news pipeline. Apply
@@ -28,23 +27,16 @@ scorer can read older comment tables without stopping the news pipeline. Apply
 Writer submissions; it adds the missing nullable account reference and preserves
 old rows without guessing their authors.
 
-A single-group event can qualify without P. Unknown media labels receive no
-group classification. Additional articles receive R; they never re-award P.
-This measures breadth of coverage, not whether reporting is true or impartial.
+Publication always requires both left and right coverage. Source labels measure
+coverage breadth, not factual correctness or common ownership.
 
 ## Decay and duplicate protection
 
-For each valid contribution:
-
-`points now = original points × 2^(-age in hours / 6)`
-
-The score is the sum of those decayed contributions. There is no starting bonus.
-Two freshly published articles from registered publishers in different groups
-start at 33: 10 article points + 20 cross-group points + 3 breadth points.
-After 6 hours: 16.5; after 12: 8.25; after 18: 4.125. A third registered
-publisher at hour 6 adds 5 + 3, making 24.5. Existing publishers cannot refresh
-their breadth bonus by republishing. Publisher breadth is not ownership diversity:
-the platform does not yet have reliable common-ownership or wire-origin data.
+Every contribution ages from its original timestamp:
+`points now = original points × 2^(-age in hours / 6)`.
+A fresh two-publisher, cross-spectrum event starts at 16; without new activity it
+falls to 8 after six hours and 4 after twelve. New coverage does not refresh
+earlier contributions. There is no starting bonus.
 
 The pipeline recomputes from original timestamps, rather than adding the previous
 run's counts again. Re-running the same input does not inflate its score. The web
@@ -73,7 +65,7 @@ matches, but avoids applying a trend about one occurrence to another.
 
 The strongest matching trend contributes:
 
-`G = 10 × min(1, ln(1 + approximate traffic bucket) / ln(1 + 100000)) × 2^(-feed age hours / 6)`
+`G = 4 × min(1, ln(1 + approximate traffic bucket) / ln(1 + 100000)) × 2^(-feed age hours / 6)`
 
 The cap and reference bucket are initial, configurable product choices, not
 calibrated weights. Repeated queries, article links and reruns do not stack the
@@ -104,23 +96,35 @@ Positive, neutral and negative developments qualify equally. There is no problem
 requirement; legacy problem fields are descriptive metadata only. A new cluster must include
 at least one new article. Clustering returns qualifying events without a fixed output count. Economy mode bounds the model input to 300 articles, sampled across publishers and categories; output remains bounded by the paid request token envelope.
 
-The public feed requires current, deduplicated left AND right coverage and an
-occurrence created within 24 hours. A reviewed analysis unlocks voting and voices;
-V1.1 catalog summaries may appear as sourced news without those actions.
+The public feed requires deduplicated left AND right coverage, a current
+24-hour occurrence, a ready analysis with a valid question, source-matched
+evidence and a publication review identifying a concrete newsworthy consequence.
+Background and event explanation must be substantive and distinct. Raw catalog
+summaries do not bypass these checks. Thin gossip, routine announcements and
+unsupported stories cannot lower the threshold.
 
-Display thresholds adapt to the verified event pool. With N positive scores,
-T=18 and a 0.25 floor, the overall threshold is:
-`max(0.25, min(5 * min(1, N/T), 0.9 * score at rank min(T,N)))`.
-The 10% boundary headroom prevents the last retained card from expiring at once.
-Each category also computes this rule with T=3 and uses the lower of its own
-threshold and the overall threshold. One-sided, duplicate, stale, or unqualified
-stories never lower or inflate the threshold. Sparse categories therefore retain
-smaller corroborated stories even when another category dominates the news.
+Only the qualified pool determines thresholds. For N positive scores,
+agenda target = max(5, ceil(1.5 × sqrt(N)));
+category target = max(2, ceil(sqrt(category N))).
+Each threshold is max(2, 0.95 × score at rank min(target,N)).
+Gündem uses its overall threshold; each category independently uses its own.
+A sparse category cannot pull a weak story into the overall agenda.
+Tied scores remain together: targets are score boundaries, not fixed count caps.
+Each placement has its own expiry; the union remains available to the feed.
 
-Gündem displays all events passing the dynamic threshold in score order, with event ID breaking
-ties. Every qualified event also appears in its own category, including stories
-already in Gündem. The three-deep-dive daily budget is separate from the display
-limit and remains unchanged. No extra model call is needed to compute thresholds.
+Economy mode makes one bounded, text-only pass for up to eight additional
+candidate stories, using only supplied excerpts and exact evidence citations.
+This is a cost envelope, not a display cap. Thin evidence is omitted. Existing
+ballots are never rewritten by this pass. Missing priority stories can still
+receive the existing bounded deep research. All calls share the same atomic
+$1.50 daily ledger, completed-day lock and conservative reservations. No extra
+daily batch or paid search is started for the brief pass.
+
+X uses counts/recent only when X_BEARER_TOKEN, specific query terms and a budget
+reservation are available. At most six requests per run, six-hour matching cache,
+no automatic retries or pagination. Missing/failed access means no X signal.
+The API measures post counts and posting velocity, not likes or engagement.
+No card or access purchase is performed by the pipeline.
 
 Scores still decay with a six-hour half-life. The score expiry uses each story's
 active threshold; the absolute 24-hour event and left/right article windows stay
@@ -142,7 +146,8 @@ The runner invokes, in order:
 1. `rss_fetcher.py`
 2. `clustering_news_enriched.py`
 3. `update_event_popularity_v02.py`
-4. `generate_event_deep_dives.py`
+4. `generate_event_briefs.py` (economy mode only)
+5. `generate_event_deep_dives.py`
 
 The arrows denote sequence, not shell output redirection. A failed script stops
 the chain. Each script has a timeout; local overlapping runs are blocked on the

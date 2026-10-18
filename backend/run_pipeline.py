@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parent
-STEPS = ['rss_fetcher.py', 'clustering_news_enriched.py', 'update_event_popularity_v02.py', 'generate_event_deep_dives.py']
+STEPS = ['rss_fetcher.py', 'clustering_news_enriched.py', 'update_event_popularity_v02.py', 'generate_event_briefs.py', 'generate_event_deep_dives.py']
 
 
 def pipeline_environment(mode):

@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 from popularity import score_event, normalize, question_ids, current_score, read_all
 from pipeline_visibility import ready_event_ids
+QUALITY = {'publication_review': {'revision': 1, 'newsworthy': True, 'basis': 'public_impact', 'reason': 'Doğrulanmış yeni kararın kamu hizmetleri ve katılımcılar üzerinde somut etkisi bulunuyor.'}, 'background': {'narration': 'Önceki kararın uygulaması farklı kurumları ve katılımcıları etkiledi. Yeni görüşmeler bu uygulamada karşılaşılan somut belirsizlikleri ele alıyor. Kaynaklar önceki aşama ile yeni kararı ayrı olarak açıklıyor.', 'source_urls': ['https://a.example/1']}, 'event_explanation': {'narration': 'Kurum yeni kararını açıkladı ve uygulamanın bir sonraki aşamasına ilişkin bilgileri paylaştı. Sonuçların etkisi ilerleyen açıklamalarla izlenebilecek.', 'source_urls': ['https://b.example/2']}}
 
 NOW = datetime(2026, 9, 8, 12, tzinfo=timezone.utc)
 QUESTIONS = {'binary_questions': [{'question': 'Öncelik verilmeli mi?'}, {'question':'Denetlenmeli mi?'}, {'question':'Bu artış ne gösteriyor?', 'question_type':'metric', 'data_anchor':'2025: %12'}]}
@@ -20,27 +21,27 @@ def score(news, now=NOW, **extra):
 class ScoreTests(unittest.TestCase):
     def test_same_snapshot_retries_do_not_inflate_and_six_hours_halves(self):
         news=[article(1,'A'),article(2,'B')]
-        self.assertEqual(score(news)['score'],33)
+        self.assertEqual(score(news)['score'],16)
         self.assertEqual(score(news)['score'],score(news)['score'])
-        self.assertEqual(score(news, NOW+timedelta(hours=6))['score'],16.5)
-        self.assertEqual(score(news, NOW+timedelta(hours=12))['score'],8.25)
+        self.assertEqual(score(news, NOW+timedelta(hours=6))['score'],8)
+        self.assertEqual(score(news, NOW+timedelta(hours=12))['score'],4)
 
     def test_new_activity_does_not_refresh_old_points(self):
         news=[article(1,'A',6),article(2,'B',6),article(3,'C')]
-        self.assertEqual(score(news)['score'],24.5)  # previous 33 / 2, plus article 5 and new publisher 3
+        self.assertEqual(score(news)['score'],12)  # original 16 / 2, plus new publisher's article 4
 
     def test_first_second_group_earns_bonus_once(self):
-        self.assertEqual(score([article(1,'A'),article(2,'A')])['score'],10)
-        self.assertEqual(score([article(1,'A'),article(2,'A'),article(3,'B')])['score'],38)
-        self.assertEqual(score([article(1,'A'),article(2,'B'),article(3,'C')])['score'],41)
-        self.assertEqual(score([article(1,'A'),article(2,'Unknown')])['score'],10)
+        self.assertEqual(score([article(1,'A'),article(2,'A')])['score'],6)
+        self.assertEqual(score([article(1,'A'),article(2,'A'),article(3,'B')])['score'],18)
+        self.assertEqual(score([article(1,'A'),article(2,'B'),article(3,'C')])['score'],20)
+        self.assertEqual(score([article(1,'A'),article(2,'Unknown')])['score'],8)
 
     def test_duplicate_links_urls_and_titles_do_not_create_points_or_sources(self):
         original=article(1,'A')
         repeated=article(2,'B',url=original['url']+'?utm_campaign=copy')
         repeated_title=article(3,'A',title=original['title'])
         result=score([original,original,repeated,repeated_title])
-        self.assertEqual(result['score'],5)
+        self.assertEqual(result['score'],4)
         self.assertEqual(result['source_count'],1)
 
     def test_bad_and_future_dates_never_earn_points(self):
@@ -61,7 +62,7 @@ class ScoreTests(unittest.TestCase):
         qid=next(iter(question_ids(QUESTIONS)))
         answers=[dict(base,id=1,binary_answers={qid:'yes'},updated_at=NOW.isoformat()),dict(base,id=2,user_id='u2',binary_answers={'fake':'yes'})]
         result=score([],micro=micro,comments=comments,answers=answers)
-        self.assertEqual(result['score'],2.5) # (micro1 + ballot1 + writer3) / 2
+        self.assertEqual(result['score'],.375) # one comment .5 + one ballot .25, both aged six hours
         self.assertEqual((result['micro_count'],result['vote_count'],result['writer_count']),(1,1,1))
 
     def test_snapshot_decay_matches_full_recomputation(self):
@@ -76,9 +77,9 @@ class ScoreTests(unittest.TestCase):
         def calculate(news):
             return score_event({'id':1}, [{'event_id':1,'news_id':a['id']} for a in news],
                 {a['id']:a for a in news}, sides, [], [], [], QUESTIONS, NOW)
-        self.assertEqual(calculate(rows)['publisher_breadth_score'], 6)  # 12 / 2
+        self.assertEqual(calculate(rows)['publisher_breadth_score'], 0)  # Article diversity is already counted; no second publisher bonus.
         repeated = rows + [article(8, 'B'), article(9, 'Invented publisher')]
-        self.assertEqual(calculate(repeated)['publisher_breadth_score'], 6)
+        self.assertEqual(calculate(repeated)['publisher_breadth_score'], 0)
 
     def test_reaction_labels_are_part_of_ballot_identity(self):
         q = {'question':'Bu gelişme sana ne hissettirdi?', 'choice_labels':{'yes':'Umut verdi','no':'Kaygı verdi','unsure':'Etkilemedi'}}
@@ -91,7 +92,7 @@ class ScoreTests(unittest.TestCase):
 
     def test_historical_group_crossing_does_not_refresh_after_old_article_expires(self):
         result=score([article(1,'A',37),article(2,'B',36),article(3,'A')])
-        expected=5*2**(-37/6)+5*2**(-36/6)+5+23*2**(-36/6)
+        expected=4*2**(-37/6)+4*2**(-36/6)+2+8*2**(-36/6)
         self.assertAlmostEqual(result['score'],expected)
 
     def test_read_all_paginates_and_propagates_failure(self):
@@ -116,10 +117,10 @@ class ScoreTests(unittest.TestCase):
                     'enough_data':True,'problem_supported':True,'source_count':2,'left_source_count':1,'right_source_count':1,
                     'numeric_data':[{'ordered':True,'source_url':'https://example.org/data','points':[{'label':'2024','value':1},{'label':'2025','value':2}]}],**changes}
         rows=[event(i) for i in range(1,6)]+[event(6,popularity_score=4.99),event(7,numeric_data=[])]
-        analysis={**QUESTIONS,'editorial_review':{'revision':2,'question_intent':'event_implication','event_specific':True,'matches_displayed_evidence':True,'evidence_relevant':True,'not_factual_recall':True},'charts':[{'chart_type':'line','source_urls':['https://example.org/data'],'points':[{'label':'2024','value':1},{'label':'2025','value':2}]}]}
+        analysis={**QUALITY,**QUESTIONS,'editorial_review':{'revision':2,'question_intent':'event_implication','event_specific':True,'matches_displayed_evidence':True,'evidence_relevant':True,'not_factual_recall':True},'charts':[{'chart_type':'line','source_urls':['https://example.org/data'],'points':[{'label':'2024','value':1},{'label':'2025','value':2}]}]}
         analyses=[{'event_id':i,'status':'ready','analysis':analysis} for i in range(1,8)]
         ids=ready_event_ids(rows,analyses,NOW)
-        self.assertEqual(ids[:3],[1,2,3]);self.assertEqual(ids[3:],[4,5,6])
+        self.assertEqual(ids[:3],[1,2,3]);self.assertEqual(ids[3:],[4,5])
         analyses[0]['analysis']={'binary_questions':[{}, {}, {}]}
         self.assertNotIn(1,ready_event_ids(rows,analyses,NOW))
 

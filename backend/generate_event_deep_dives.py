@@ -54,7 +54,7 @@ def main() -> None:
 
     events = (
         db.table("events")
-        .select("id,created_at,category,title,numeric_data,enough_data,is_visible,problem_supported,source_count,left_source_count,right_source_count,article_count,popularity_score,popularity_updated_at")
+        .select("id,created_at,category,title,data,numeric_data,enough_data,is_visible,problem_supported,source_count,left_source_count,right_source_count,article_count,popularity_score,popularity_updated_at")
         .gte("created_at", cutoff.isoformat())
         .lte("created_at", datetime.now(timezone.utc).isoformat())
         .order("popularity_score", desc=True)
@@ -63,7 +63,7 @@ def main() -> None:
     )
 
     now = datetime.now(timezone.utc)
-    eligible = [event for event in events if balanced_event(event)]
+    eligible = [event for event in events if balanced_event(event) and (event.get('data') or {}).get('newsworthy') is not False and not (event.get('data') or {}).get('publication_excluded_reason')]
     thresholds = event_thresholds(eligible, now)
     eligible = [event for event in eligible if current_score(event, now) >= thresholds[int(event['id'])]]
     ids = [int(event["id"]) for event in eligible]

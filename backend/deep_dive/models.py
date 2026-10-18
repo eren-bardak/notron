@@ -135,7 +135,15 @@ class EditorialReview(BaseModel):
     reason: str = ""
 
 
+class PublicationReview(BaseModel):
+    revision: Literal[1] = 1
+    newsworthy: bool
+    basis: Literal['public_impact', 'institutional_decision', 'major_result', 'cultural_significance', 'accountability', 'scientific_development']
+    reason: str
+
+
 class EventAnalysis(BaseModel):
+    publication_review: PublicationReview | None = None
     evidence_mode: Literal["numeric", "qualitative"] = "numeric"
     editorial_review: EditorialReview | None = None
     schema_version: Literal[2]

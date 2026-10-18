@@ -100,7 +100,7 @@ class GoogleTrendsTests(unittest.TestCase):
         }
         trends = parse_trends(feed(), NOW)
         expected_bonus = event_trend_bonus(rows['news'], trends, NOW)['points']
-        for snapshot, expected_score in [(trends, 5 + expected_bonus), ([], 5)]:
+        for snapshot, expected_score in [(trends, 4 + expected_bonus), ([], 4)]:
             db = MagicMock()
             with patch.object(runner, 'load_dotenv'), patch.object(runner, 'create_client', return_value=db), \
                  patch.object(runner, 'read_all', side_effect=lambda db, table, *args, **kwargs: rows[table]), \
