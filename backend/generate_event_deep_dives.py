@@ -19,6 +19,7 @@ from pipeline_visibility import enforce_previous_year_gate, publish_ready_events
 from popularity import POLICY, current_score
 from editorial_quality import RESEARCH_REVISION, current_editorial
 from daily_budget import budget_client, coverage_rank, ledger, BudgetError
+from event_catalog import balanced_event
 
 
 load_dotenv()
@@ -53,7 +54,7 @@ def main() -> None:
 
     events = (
         db.table("events")
-        .select("id,created_at,numeric_data,enough_data,is_visible,problem_supported,source_count,article_count,popularity_score,popularity_updated_at")
+        .select("id,created_at,numeric_data,enough_data,is_visible,problem_supported,source_count,left_source_count,right_source_count,article_count,popularity_score,popularity_updated_at")
         .gte("created_at", cutoff.isoformat())
         .lte("created_at", datetime.now(timezone.utc).isoformat())
         .order("popularity_score", desc=True)
@@ -61,7 +62,7 @@ def main() -> None:
         .data
     )
 
-    eligible = [event for event in events if (event.get("source_count") or 0) >= 2
+    eligible = [event for event in events if balanced_event(event)
                 and current_score(event, datetime.now(timezone.utc)) >= POLICY["display_threshold"]]
     ids = [int(event["id"]) for event in eligible]
     all_ids = [int(event["id"]) for event in events]
@@ -84,6 +85,7 @@ def main() -> None:
     if ECONOMY_MODE:
         ranked = sorted(eligible, key=coverage_rank)
         selected_ids = ledger(db, 'select', p_event_ids=[int(e['id']) for e in ranked[:3]])['event_ids']
+        selected_ids = [event_id for event_id in selected_ids if event_id in {int(e['id']) for e in ranked}]
         # Reuse this day's selection after a failed run; never buy a second batch.
         pending = [e for e in ranked if int(e['id']) in selected_ids and e in pending]
     failures = 0
@@ -175,9 +177,10 @@ def main() -> None:
     published = publish_ready_events(db)
     if ECONOMY_MODE:
         verified = set(selected_ids).intersection(published)
-        print(f'Daily batch verification | target=3 | published={len(verified)}', flush=True)
-        if len(verified) != 3:
-            raise RuntimeError(f'Daily batch incomplete: {len(verified)}/3 stories passed existing publication checks.')
+        target = min(3, len(eligible))
+        print(f'Daily batch verification | target={target} | published={len(verified)}', flush=True)
+        if len(verified) != target:
+            raise RuntimeError(f'Daily batch incomplete: {len(verified)}/{target} cross-spectrum stories passed publication checks.')
     background_failures = 0 if ECONOMY_MODE else refresh_background_contexts(db, client, model, published)
     if ECONOMY_MODE:
         print("Economy mode: optional cover/photo/background passes skipped; core editorial checks retained.")

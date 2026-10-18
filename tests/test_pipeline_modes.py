@@ -43,7 +43,7 @@ class PipelineModeTests(unittest.TestCase):
         with patch.dict(os.environ, {"MAX_DEEP_DIVES_PER_RUN": "20", "MAX_CLUSTER_EVENTS": "20"}):
             env = run_pipeline.pipeline_environment("economy")
         self.assertEqual(env["MAX_DEEP_DIVES_PER_RUN"], "3")
-        self.assertEqual(env["MAX_CLUSTER_EVENTS"], "3")
+        self.assertEqual(env["MAX_CLUSTER_EVENTS"], "18")
         self.assertEqual(env["MAX_CLUSTER_ARTICLES"], "300")
         self.assertEqual(env["NOTRON_PIPELINE_MODE"], "economy")
         self.assertEqual(env["OPENAI_EVENT_MODEL"], "gpt-6-luna")
@@ -95,7 +95,7 @@ class PipelineModeTests(unittest.TestCase):
 
     def test_economy_does_not_report_an_incomplete_batch_as_success(self):
         now = datetime.now(timezone.utc).isoformat()
-        events = [{"id": i, "created_at": now, "source_count": 2,
+        events = [{"id": i, "created_at": now, "source_count": 2, "left_source_count": 1, "right_source_count": 1,
                    "popularity_score": 100, "popularity_updated_at": now} for i in (1, 2)]
         db = Mock()
         def table(name):
@@ -125,7 +125,7 @@ class PipelineModeTests(unittest.TestCase):
              patch.object(research_pipeline, "refresh_event_covers") as photos, \
              patch.object(research_pipeline, "refresh_background_contexts") as backgrounds, \
              patch.object(research_pipeline, "publish_ready_events", return_value=[1]) as publish:
-            with self.assertRaisesRegex(RuntimeError, '1/3 stories'):
+            with self.assertRaisesRegex(RuntimeError, '1/2 cross-spectrum stories'):
                 research_pipeline.main()
         self.assertEqual(research.call_count, 1)
         self.assertEqual(analyze.call_count, 1)
@@ -137,7 +137,7 @@ class PipelineModeTests(unittest.TestCase):
 
     def test_economy_researches_three_broadest_stories_and_verifies_publication(self):
         now = datetime.now(timezone.utc).isoformat()
-        events = [{'id':i,'created_at':now,'source_count':i+1,'article_count':i*3,
+        events = [{'id':i,'created_at':now,'source_count':i+1,'left_source_count':1,'right_source_count':1,'article_count':i*3,
                    'popularity_score':100,'popularity_updated_at':now} for i in (1,2,3,4)]
         db = Mock()
         def table(name):

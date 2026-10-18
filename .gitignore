@@ -43,6 +43,7 @@ next-env.d.ts
 /work/
 
 # python
+.venv/
 __pycache__/
 *.py[cod]
 

@@ -187,7 +187,7 @@ class SingleQuestionTests(unittest.TestCase):
         ):
             with self.subTest(revision=revision):
                 event = {"id": 1, "created_at": now.isoformat(), "enough_data": True,
-                         "is_visible": True, "numeric_data": numeric, "source_count": 2,
+                         "is_visible": True, "numeric_data": numeric, "source_count": 2, "left_source_count": 1, "right_source_count": 1,
                          "popularity_score": 100, "popularity_updated_at": now.isoformat()}
                 analysis = {"schema_version": 2, "question_revision": revision,
                             "binary_questions": copy.deepcopy(questions), "charts": [chart], "editorial_review": {"revision": 2, "question_intent": "event_implication", "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True, "tradeoff_present": True, "balanced_choices": True}}

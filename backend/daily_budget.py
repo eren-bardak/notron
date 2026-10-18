@@ -119,5 +119,5 @@ def budget_client(client, db):
 
 
 def coverage_rank(event):
-    return (-int(event.get("source_count") or 0), -int(event.get("article_count") or 0),
-            -float(event.get("popularity_score") or 0), int(event["id"]))
+    return (-float(event.get("popularity_score") or 0), -int(event.get("source_count") or 0),
+            -int(event.get("article_count") or 0), int(event["id"]))

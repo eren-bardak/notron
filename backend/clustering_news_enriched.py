@@ -12,6 +12,8 @@ from pydantic import BaseModel, Field, ValidationError
 from supabase import create_client
 from popularity import POLICY
 from daily_budget import budget_client
+from event_catalog import balanced_articles, category_id
+from popularity import normalize
 
 NEWS_WINDOW_HOURS = POLICY["event_window_hours"]
 
@@ -26,7 +28,7 @@ load_dotenv()
 MODEL = os.getenv("OPENAI_EVENT_MODEL", "gpt-5.4-mini")
 ECONOMY_MODE = os.getenv("NOTRON_PIPELINE_MODE") == "economy"
 MIN_SOURCES, MIN_CONFIDENCE = 2, 50
-MAX_EVENTS = max(1, min(3 if ECONOMY_MODE else 20, int(os.getenv("MAX_CLUSTER_EVENTS", "20"))))
+MAX_EVENTS = max(1, min(18 if ECONOMY_MODE else 24, int(os.getenv("MAX_CLUSTER_EVENTS", "18"))))
 ARTICLE_LIMIT = max(10, min(300, int(os.getenv("MAX_CLUSTER_ARTICLES", "300"))))
 
 HEADERS = {
@@ -40,6 +42,8 @@ HEADERS = {
 class Event(BaseModel):
     title: str
     summary: str
+    category: Literal["politics", "finance", "sports", "magazine", "technology", "entertainment"] = "politics"
+    x_query_terms: list[str] = Field(default_factory=list, max_length=3)
     problem_supported: bool
     problem_type: Literal[
         "economic_hardship",
@@ -177,9 +181,9 @@ def load_source_leanings(db):
     source_leanings = {}
 
     for row in rows:
-        source_name = text(
+        source_name = normalize(
             row.get(SOURCE_NAME_COLUMN)
-        ).casefold()
+        )
 
         leaning = normalize_leaning(
             row.get(SOURCE_LEANING_COLUMN)
@@ -239,7 +243,7 @@ def update_event_counts(db, event_id, source_leanings):
 
     # Aynı yayıncının birden fazla haberini bir kez say.
     unique_sources = {
-        text(article.get("source")).casefold()
+        normalize(article.get("source"))
         for article in articles
         if text(article.get("source"))
     }
@@ -530,6 +534,8 @@ def main():
         {
             "id": int(item["id"]),
             "source": text(item.get("source")),
+            "source_side": source_leanings.get(normalize(item.get("source"))),
+            "existing_event_id": news_to_event.get(int(item["id"])),
             "title": text(item.get("title")),
             "description": text(
                 item.get("description")
@@ -567,7 +573,20 @@ def main():
     sports achievements. A problem or adverse angle is never required.
     Do not manufacture harm, conflict or criticism around good news.
     Rank candidates by breadth of distinct publishers, then supporting article
-    count. Return the three most widely covered eligible occurrences first.
+    count. Group all eligible occurrences, including smaller category stories.
+    Each event MUST have at least one source_side=left and one source_side=right.
+    Center sources are welcome but cannot substitute for either side.
+    Attach new articles to matching existing_event_id articles whenever they
+    describe the same occurrence. Different dates/places are different events.
+
+    category: Choose exactly one of politics, finance, sports, magazine,
+    technology, entertainment. Politics includes public affairs, institutions,
+    justice, public safety, health and environmental/disaster governance.
+    Finance includes economy, markets, employment and business. Magazine is
+    celebrity/personal-life reporting; entertainment is film/music/arts/gaming.
+    x_query_terms: 2 or 3 short, specific Turkish search phrases jointly identifying
+    this occurrence (person/place + concrete action/object). No operators,
+    quotes, URLs, hashtags or generic terms like haber, Türkiye, son dakika.
 
     Return at most {MAX_EVENTS} strongest events. Keep each summary under 80 words.
 
@@ -659,6 +678,7 @@ def main():
         invalid = (
             not new_news_ids.intersection(ids)
             or len(sources) < MIN_SOURCES
+            or not balanced_articles(articles, source_leanings)
             or event.confidence < MIN_CONFIDENCE
             or len(old_event_ids) > 1
         )
@@ -698,7 +718,16 @@ def main():
             "summary": event.summary,
             "problem_supported": event.problem_supported,
             "central_problem": text(event.central_problem),
+            "category": category_id(event.category, event.title),
         }
+        # Preserve unrelated JSON and existing X measurements when adding links.
+        old_data = {}
+        if old_event_id is not None:
+            rows = db.table('events').select('data').eq('id', old_event_id).execute().data
+            old_data = (rows[0].get('data') or {}) if rows else {}
+        event_data['data'] = {**old_data, 'catalog_version': '1.1',
+                              'cluster_confidence': event.confidence,
+                              'x_query_terms': event.x_query_terms}
 
         # Keep an existing reviewed cover until the final-stage photo review.
         cover_image_url = choose_cover_image(db, articles) if old_event_id is None else None

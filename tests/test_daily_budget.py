@@ -81,11 +81,11 @@ class DailyBudgetTests(unittest.TestCase):
                                   output=[SimpleNamespace(type='web_search_call')]*2)
         self.assertLessEqual(usage_charge(maximum), 900000)
 
-    def test_publisher_breadth_wins_over_popularity(self):
+    def test_integrated_popularity_orders_selection_then_publisher_breadth(self):
         stories = [{'id':1,'source_count':2,'article_count':20,'popularity_score':100},
                    {'id':2,'source_count':5,'article_count':8,'popularity_score':10},
                    {'id':3,'source_count':5,'article_count':9,'popularity_score':5}]
-        self.assertEqual([e['id'] for e in sorted(stories, key=coverage_rank)], [3,2,1])
+        self.assertEqual([e['id'] for e in sorted(stories, key=coverage_rank)], [1,2,3])
 
 
 if __name__ == '__main__':

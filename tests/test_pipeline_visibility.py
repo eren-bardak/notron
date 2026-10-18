@@ -13,7 +13,7 @@ class PublicationTests(unittest.TestCase):
         def event(i, **changes):
             return {"id": i, "created_at": now.isoformat(), "enough_data": True,
                     "problem_supported": True, "numeric_data": [{"ordered": True, "source_url":"https://example.org/data", "points": [{"label":"2024", "value":1}, {"label":"2025", "value":2}]}],
-                    "source_count": 2, "popularity_score": 100-i, "popularity_updated_at": now.isoformat(), **changes}
+                    "source_count": 2, "left_source_count": 1, "right_source_count": 1, "popularity_score": 100-i, "popularity_updated_at": now.isoformat(), **changes}
         events = [event(1), event(2, numeric_data=[]), event(3), event(4),
                   event(5, created_at=(now-timedelta(hours=25)).isoformat()),
                   event(6, created_at=(now+timedelta(minutes=1)).isoformat()),
@@ -31,7 +31,7 @@ class PublicationTests(unittest.TestCase):
         now = datetime(2026, 9, 8, tzinfo=timezone.utc)
         points = [{"label": "Proje kapasitesi", "value": 120}, {"label": "Başvuru", "value": 400}]
         data = {"ordered": False, "source_url": "https://example.org/project", "unit": "kişi", "points": points}
-        event = {"id": 20, "created_at": now.isoformat(), "enough_data": True, "source_count": 2,
+        event = {"id": 20, "created_at": now.isoformat(), "enough_data": True, "source_count": 2, "left_source_count": 1, "right_source_count": 1,
                  "numeric_data": [data], "popularity_score": 100, "popularity_updated_at": now.isoformat()}
         analysis = {"editorial_review": {"revision": 2, "question_intent": "event_implication", "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True}, "binary_questions": [{"question": "Bu projenin kapasitesi başvuruyu karşılıyor mu?", "question_type": "metric", "data_anchor": "120 kişilik kapasite; 400 başvuru."}],
                     "charts": [{"chart_type": "bars", "unit": "kişi", "source_urls": [data["source_url"]], "points": points}]}
