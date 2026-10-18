@@ -43,7 +43,7 @@ class PipelineModeTests(unittest.TestCase):
         with patch.dict(os.environ, {"MAX_DEEP_DIVES_PER_RUN": "20", "MAX_CLUSTER_EVENTS": "20"}):
             env = run_pipeline.pipeline_environment("economy")
         self.assertEqual(env["MAX_DEEP_DIVES_PER_RUN"], "3")
-        self.assertEqual(env["MAX_CLUSTER_EVENTS"], "18")
+        self.assertNotIn("MAX_CLUSTER_EVENTS", env)
         self.assertEqual(env["MAX_CLUSTER_ARTICLES"], "300")
         self.assertEqual(env["NOTRON_PIPELINE_MODE"], "economy")
         self.assertEqual(env["OPENAI_EVENT_MODEL"], "gpt-6-luna")
@@ -71,7 +71,7 @@ class PipelineModeTests(unittest.TestCase):
         db = Mock()
         def table(name):
             query = Mock()
-            for method in ("select", "is_", "gte", "lte", "order", "limit", "in_"):
+            for method in ("select", "is_", "gte", "lte", "order", "limit", "in_", "range"):
                 getattr(query, method).return_value = query
             query.execute.return_value = SimpleNamespace(data=articles if name == "news" else [])
             return query

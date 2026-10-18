@@ -16,7 +16,8 @@ def pipeline_environment(mode):
     env['NOTRON_PIPELINE_MODE'] = mode
     if mode == 'economy':
         model = env.get('OPENAI_ECONOMY_MODEL') or 'gpt-6-luna'
-        env.update(MAX_CLUSTER_ARTICLES='300', MAX_CLUSTER_EVENTS='18', MAX_DEEP_DIVES_PER_RUN='3',
+        env.pop('MAX_CLUSTER_EVENTS', None)
+        env.update(MAX_CLUSTER_ARTICLES='300', MAX_DEEP_DIVES_PER_RUN='3',
                    OPENAI_EVENT_MODEL=model, OPENAI_DEEP_DIVE_MODEL=model)
     return env
 
@@ -108,4 +109,3 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
-

@@ -13,6 +13,7 @@ from supabase import create_client
 from popularity import POLICY
 from daily_budget import budget_client
 from event_catalog import balanced_articles, category_id
+from catalog_sampling import sample_articles
 from popularity import normalize
 
 NEWS_WINDOW_HOURS = POLICY["event_window_hours"]
@@ -28,7 +29,6 @@ load_dotenv()
 MODEL = os.getenv("OPENAI_EVENT_MODEL", "gpt-5.4-mini")
 ECONOMY_MODE = os.getenv("NOTRON_PIPELINE_MODE") == "economy"
 MIN_SOURCES, MIN_CONFIDENCE = 2, 50
-MAX_EVENTS = max(1, min(18 if ECONOMY_MODE else 24, int(os.getenv("MAX_CLUSTER_EVENTS", "18"))))
 ARTICLE_LIMIT = max(10, min(300, int(os.getenv("MAX_CLUSTER_ARTICLES", "300"))))
 
 HEADERS = {
@@ -42,7 +42,7 @@ HEADERS = {
 class Event(BaseModel):
     title: str
     summary: str
-    category: Literal["politics", "finance", "sports", "magazine", "technology", "entertainment"] = "politics"
+    category: Literal["politics", "finance", "sports", "magazine", "technology", "entertainment", "general"] = "general"
     x_query_terms: list[str] = Field(default_factory=list, max_length=3)
     problem_supported: bool
     problem_type: Literal[
@@ -428,38 +428,16 @@ def main():
     now = datetime.now(timezone.utc)
     cutoff = recent_news_cutoff(now).isoformat()
 
-    # Load unprocessed rows separately so the 300-row context limit cannot
-    # hide newly inserted articles.
-    new_rows = (
-        db.table("news")
-        .select("*")
-        .is_("clustered_at", "null")
-        .gte("published_at", cutoff)
-        .lte("published_at", now.isoformat())
-        .order("published_at", desc=True)
-        .limit(ARTICLE_LIMIT)
-        .execute()
-        .data
-    )
-
-    context_rows = (
-        db.table("news")
-        .select("*")
-        .gte("published_at", cutoff)
-        .lte("published_at", now.isoformat())
-        .order("published_at", desc=True)
-        .limit(ARTICLE_LIMIT)
-        .execute()
-        .data
-    )
-
-    online_news = list({
-        int(item["id"]): item
-        for item in new_rows + context_rows
-    }.values())
+    online_news = []
+    for offset in range(0, 20000, 500):
+        page = (db.table('news').select('*').gte('published_at', cutoff)
+                .lte('published_at', now.isoformat()).order('id')
+                .range(offset, offset + 499).execute().data)
+        online_news.extend(page)
+        if len(page) < 500:
+            break
     if ECONOMY_MODE:
-        # New rows come first, so context cannot consume the limited input budget.
-        online_news = online_news[:ARTICLE_LIMIT]
+        online_news = sample_articles(online_news, ARTICLE_LIMIT)
     online_news.sort(
         key=lambda item: item.get("published_at") or "",
         reverse=True,
@@ -580,15 +558,21 @@ def main():
     describe the same occurrence. Different dates/places are different events.
 
     category: Choose exactly one of politics, finance, sports, magazine,
-    technology, entertainment. Politics includes public affairs, institutions,
-    justice, public safety, health and environmental/disaster governance.
+    technology, entertainment, general. Politics includes government decisions,
+    parties, elections, diplomacy and political institutions; accidents and weather
+    alone are general, not politics.
     Finance includes economy, markets, employment and business. Magazine is
     celebrity/personal-life reporting; entertainment is film/music/arts/gaming.
     x_query_terms: 2 or 3 short, specific Turkish search phrases jointly identifying
     this occurrence (person/place + concrete action/object). No operators,
     quotes, URLs, hashtags or generic terms like haber, Türkiye, son dakika.
 
-    Return at most {MAX_EVENTS} strongest events. Keep each summary under 80 words.
+    Return every qualifying occurrence you can substantiate from the supplied articles.
+    Do not impose a top-three or fixed event-count cutoff. Keep summaries under 60 words.
+    Include qualifying sports, finance, technology, entertainment and magazine events,
+    not just the largest political or disaster stories. Never relabel an event merely
+    to fill a category. Use general for accidents/weather and other occurrences that
+    do not belong to the six specific categories; they remain in the overall agenda.
 
     Each returned event must have:
     - At least {MIN_SOURCES} different sources
@@ -706,7 +690,6 @@ def main():
 
     print(f"Valid clusters: {len(clusters)}")
     clusters.sort(key=lambda item: (-len(item[3]), -len(item[1]), -item[0].confidence))
-    clusters = clusters[:MAX_EVENTS]
 
     # Events successfully inserted or updated during this run.
     saved_events = []
@@ -799,4 +782,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -1,0 +1,21 @@
+{
+  "Sabah": [
+    "https://www.sabah.com.tr/rss/anasayfa.xml",
+    "https://www.sabah.com.tr/rss/ekonomi.xml",
+    "https://www.sabah.com.tr/rss/spor.xml",
+    "https://www.sabah.com.tr/rss/magazin.xml",
+    "https://www.sabah.com.tr/rss/kultur-sanat.xml",
+    "https://www.sabah.com.tr/rss/teknokulis.xml"
+  ],
+  "A Haber": [
+    "https://www.ahaber.com.tr/rss/magazin.xml"
+  ],
+  "Sözcü": [
+    "https://www.sozcu.com.tr/feeds-rss-category-bilim-teknoloji",
+    "https://www.sozcu.com.tr/feeds-rss-category-magazin"
+  ],
+  "Cumhuriyet": [
+    "https://www.cumhuriyet.com.tr/rss/kultur-sanat.xml",
+    "https://www.cumhuriyet.com.tr/rss/bilim-teknoloji.xml"
+  ]
+}

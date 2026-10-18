@@ -1,6 +1,8 @@
 import html
+import json
 import os
 import re
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin
 
@@ -60,7 +62,7 @@ def clean_description(value):
 # ============================================================
 
 NEWS_WINDOW_HOURS = POLICY["event_window_hours"]
-MAX_PAGE_SCRAPES_PER_SOURCE = 5
+MAX_PAGE_SCRAPES_PER_SOURCE = 0 if os.getenv('NOTRON_PIPELINE_MODE') == 'economy' else 5
 
 load_dotenv()
 
@@ -135,6 +137,11 @@ sources = (
     .execute()
     .data
 )
+
+# Keep one publisher identity across its topic feeds; extra URLs are not extra sources.
+extra_feeds = json.loads((Path(__file__).resolve().parents[1] / 'config/source_feeds.json').read_text())
+sources = [{**source, 'rss_url': feed} for source in sources
+           for feed in dict.fromkeys([source['rss_url'], *extra_feeds.get(source['name'], [])])]
 
 print("\n================================")
 print("NEWS SENSOR")
