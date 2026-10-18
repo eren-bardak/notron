@@ -119,7 +119,7 @@ class ScoreTests(unittest.TestCase):
         analysis={**QUESTIONS,'editorial_review':{'revision':2,'question_intent':'event_implication','event_specific':True,'matches_displayed_evidence':True,'evidence_relevant':True,'not_factual_recall':True},'charts':[{'chart_type':'line','source_urls':['https://example.org/data'],'points':[{'label':'2024','value':1},{'label':'2025','value':2}]}]}
         analyses=[{'event_id':i,'status':'ready','analysis':analysis} for i in range(1,8)]
         ids=ready_event_ids(rows,analyses,NOW)
-        self.assertEqual(ids[:3],[1,2,3]);self.assertEqual(ids[3:],[4,5])
+        self.assertEqual(ids[:3],[1,2,3]);self.assertEqual(ids[3:],[4,5,6])
         analyses[0]['analysis']={'binary_questions':[{}, {}, {}]}
         self.assertNotIn(1,ready_event_ids(rows,analyses,NOW))
 

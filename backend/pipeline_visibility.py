@@ -1,7 +1,7 @@
 """Publish eligible files; the public feed splits Gündem / Diğer Haberler."""
 from datetime import datetime, timedelta, timezone
 from numeric_data_quality import valid_analysis_timeline, valid_numeric_data
-from popularity import POLICY, current_score, parse_time, read_all
+from popularity import POLICY, current_score, event_thresholds, parse_time, read_all
 from editorial_quality import current_editorial
 from event_catalog import balanced_event
 
@@ -31,9 +31,10 @@ def ready_event_ids(events, analyses, now=None, limit=None):
         if (int(event['id']) in ready and created and cutoff <= created <= now
                 and event.get('enough_data') is True
                 and valid_analysis_timeline(ready[int(event['id'])], event.get('numeric_data'), now)
-                and balanced_event(event)
-                and current_score(event, now) >= POLICY['display_threshold']):
+                and balanced_event(event)):
             eligible.append(event)
+    thresholds = event_thresholds(eligible, now)
+    eligible = [event for event in eligible if current_score(event, now) >= thresholds[int(event['id'])]]
     eligible.sort(key=lambda event: (-current_score(event, now), int(event['id'])))
     return [int(event['id']) for event in eligible[:limit]]
 
@@ -61,7 +62,7 @@ def enforce_previous_year_gate(db, events, analyses, now=None):
 
 def publish_ready_events(db):
     now = datetime.now(timezone.utc)
-    events = read_all(db, 'events', 'id,created_at,enough_data,is_visible,problem_supported,numeric_data,source_count,left_source_count,right_source_count,popularity_score,popularity_updated_at')
+    events = read_all(db, 'events', 'id,created_at,category,title,enough_data,is_visible,problem_supported,numeric_data,source_count,left_source_count,right_source_count,popularity_score,popularity_updated_at')
     cutoff = now - timedelta(hours=POLICY['event_window_hours'])
     recent = [e for e in events if (at := parse_time(e.get('created_at'))) and cutoff <= at <= now]
     ids = [int(e['id']) for e in recent]

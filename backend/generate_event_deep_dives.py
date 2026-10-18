@@ -16,7 +16,7 @@ from deep_dive.models import EventAnalysis, ResearchBundle
 from event_images import refresh_event_covers
 from numeric_data_quality import valid_analysis_timeline, has_event_evidence
 from pipeline_visibility import enforce_previous_year_gate, publish_ready_events, valid_questions, valid_numeric_data
-from popularity import POLICY, current_score
+from popularity import POLICY, current_score, event_thresholds
 from editorial_quality import RESEARCH_REVISION, current_editorial
 from daily_budget import budget_client, coverage_rank, ledger, BudgetError
 from event_catalog import balanced_event
@@ -54,7 +54,7 @@ def main() -> None:
 
     events = (
         db.table("events")
-        .select("id,created_at,numeric_data,enough_data,is_visible,problem_supported,source_count,left_source_count,right_source_count,article_count,popularity_score,popularity_updated_at")
+        .select("id,created_at,category,title,numeric_data,enough_data,is_visible,problem_supported,source_count,left_source_count,right_source_count,article_count,popularity_score,popularity_updated_at")
         .gte("created_at", cutoff.isoformat())
         .lte("created_at", datetime.now(timezone.utc).isoformat())
         .order("popularity_score", desc=True)
@@ -62,8 +62,10 @@ def main() -> None:
         .data
     )
 
-    eligible = [event for event in events if balanced_event(event)
-                and current_score(event, datetime.now(timezone.utc)) >= POLICY["display_threshold"]]
+    now = datetime.now(timezone.utc)
+    eligible = [event for event in events if balanced_event(event)]
+    thresholds = event_thresholds(eligible, now)
+    eligible = [event for event in eligible if current_score(event, now) >= thresholds[int(event['id'])]]
     ids = [int(event["id"]) for event in eligible]
     all_ids = [int(event["id"]) for event in events]
     stored = (db.table("event_analyses").select("event_id,status,analysis,research").in_("event_id", all_ids).execute().data) if all_ids else []
@@ -202,4 +204,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
