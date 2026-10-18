@@ -104,24 +104,28 @@ Positive, neutral and negative developments qualify equally. There is no problem
 requirement; legacy problem fields are descriptive metadata only. A new cluster must include
 at least one new article. Clustering can consider up to 20 events in a run.
 
-Before publication an event must have:
+The public feed requires current, deduplicated left AND right coverage and an
+occurrence created within 24 hours. A reviewed analysis unlocks voting and voices;
+V1.1 catalog summaries may appear as sourced news without those actions.
 
-- A successful data-availability result, regardless of whether the news is positive or negative.
-- At least two deduplicated publishers with articles from the last 24 hours.
-- A sourced numerical series with at least two finite values.
-- A ready deep analysis with exactly three nonempty questions.
-- An event creation time within 24 hours and a current score of at least 5.
+Display thresholds adapt to the verified event pool. With N positive scores,
+T=18 and a 0.25 floor, the overall threshold is:
+`max(0.25, min(5 * min(1, N/T), 0.9 * score at rank min(T,N)))`.
+The 10% boundary headroom prevents the last retained card from expiring at once.
+Each category also computes this rule with T=3 and uses the lower of its own
+threshold and the overall threshold. One-sided, duplicate, stale, or unqualified
+stories never lower or inflate the threshold. Sparse categories therefore retain
+smaller corroborated stories even when another category dominates the news.
 
-The top three qualifying events appear in Gündem. All remaining qualifying events
-appear in Other Events, directly after Gündem. Ties use event ID. An event may
-move between these tabs as ranking changes; it appears in only one at a time.
-Below-threshold, expired, or incomplete events appear in neither tab. Old records
-are retained in the database. There is no minimum number of displayed events.
+Gündem displays up to 12 qualified events in score order, with event ID breaking
+ties. Every qualified event also appears in its own category, including stories
+already in Gündem. The three-deep-dive daily budget is separate from the display
+limit and remains unchanged. No extra model call is needed to compute thresholds.
 
-The 5-point threshold lets smaller, corroborated stories qualify while removing
-inactive stories through decay. The 24-hour event age limit is absolute: fresh
-comments do not keep an old event displayed indefinitely. Active web views expire
-cards and refresh the feed; Gündem is always capped at three cards.
+Scores still decay with a six-hour half-life. The score expiry uses each story's
+active threshold; the absolute 24-hour event and left/right article windows stay
+in force. No score threshold can manufacture missing coverage or revive an old
+story. Existing records and ballots remain stored.
 
 ## Execution and activation
 

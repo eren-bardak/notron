@@ -47,6 +47,30 @@ def current_score(event, now):
     return score * decay(parse_time(event.get('popularity_updated_at')), now)
 
 
+def display_threshold(scores, target=None):
+    """Lower the cutoff when the verified event pool is small or weak."""
+    target = target or POLICY['display_target_count']
+    ranked = sorted((score for score in scores if math.isfinite(score) and score > 0), reverse=True)
+    floor = POLICY['display_threshold_min']
+    if not ranked:
+        return floor
+    density = POLICY['display_threshold'] * min(1, len(ranked) / target)
+    boundary = ranked[min(target, len(ranked)) - 1] * .9
+    return max(floor, min(density, boundary))
+
+
+def event_thresholds(events, now):
+    # Import lazily: catalog source normalization uses this module.
+    from event_catalog import category_id
+    scores = {int(event['id']): current_score(event, now) for event in events}
+    overall = display_threshold(scores.values())
+    categories = {int(event['id']): category_id(event.get('category'), event.get('title', '')) for event in events}
+    cutoffs = {category: min(overall, display_threshold(
+        [scores[event_id] for event_id in scores if categories[event_id] == category], POLICY['category_target_count']))
+        for category in set(categories.values())}
+    return {event_id: cutoffs[category] for event_id, category in categories.items()}
+
+
 def canonical_url(value):
     try:
         url = urlsplit(value or '')
