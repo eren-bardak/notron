@@ -44,6 +44,8 @@ class Event(BaseModel):
     summary: str
     category: Literal["politics", "finance", "sports", "magazine", "technology", "entertainment", "general"] = "general"
     x_query_terms: list[str] = Field(default_factory=list, max_length=3)
+    newsworthy: bool = False
+    news_value_reason: str = ""
     problem_supported: bool
     problem_type: Literal[
         "economic_hardship",
@@ -567,6 +569,13 @@ def main():
     this occurrence (person/place + concrete action/object). No operators,
     quotes, URLs, hashtags or generic terms like haber, Türkiye, son dakika.
 
+    newsworthy: true ONLY for a substantive new development: public impact,
+    institutional decisions, major competitive results, cultural significance,
+    accountability or scientific advances. Explain its concrete consequence in
+    news_value_reason (30+ characters). Routine celebrity outings, luxury purchases,
+    unconfirmed transfers, referee names, minor isolated crime and thin announcements
+    are not newsworthy. Do not fill a category with low-value stories.
+
     Return every qualifying occurrence you can substantiate from the supplied articles.
     Do not impose a top-three or fixed event-count cutoff. Keep summaries under 60 words.
     Include qualifying sports, finance, technology, entertainment and magazine events,
@@ -664,6 +673,7 @@ def main():
             or len(sources) < MIN_SOURCES
             or not balanced_articles(articles, source_leanings)
             or event.confidence < MIN_CONFIDENCE
+            or not event.newsworthy or len(event.news_value_reason.strip()) < 30
             or len(old_event_ids) > 1
         )
 
@@ -708,8 +718,10 @@ def main():
         if old_event_id is not None:
             rows = db.table('events').select('data').eq('id', old_event_id).execute().data
             old_data = (rows[0].get('data') or {}) if rows else {}
+        old_data.pop('publication_excluded_reason', None)
         event_data['data'] = {**old_data, 'catalog_version': '1.1',
                               'cluster_confidence': event.confidence,
+                              'newsworthy': event.newsworthy, 'news_value_reason': event.news_value_reason,
                               'x_query_terms': event.x_query_terms}
 
         # Keep an existing reviewed cover until the final-stage photo review.

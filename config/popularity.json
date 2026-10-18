@@ -1,17 +1,25 @@
 {
-  "cross_group_points": 20,
-  "article_points": 5,
-  "participation_points": 1,
-  "writer_points": 3,
+  "cross_group_points": 8,
+  "article_points": 4,
+  "participation_points": 0.25,
+  "writer_points": 0.5,
   "half_life_hours": 6,
-  "display_threshold": 5,
-  "display_threshold_min": 0.25,
-  "display_target_count": 18,
-  "category_target_count": 3,
-  "primary_limit": 3,
+  "display_threshold": 2,
+  "display_threshold_min": 2,
   "event_window_hours": 24,
-  "publisher_breadth_points": 3,
+  "publisher_breadth_points": 0,
   "publisher_breadth_cap": 4,
-  "google_trends_max_points": 10,
-  "google_trends_full_traffic": 100000
+  "google_trends_max_points": 4,
+  "google_trends_full_traffic": 100000,
+  "comment_points": 0.5,
+  "community_people_limit": 20,
+  "article_repeat_factors": [
+    1,
+    0.5,
+    0.25
+  ],
+  "display_target_min": 5,
+  "display_target_scale": 1.5,
+  "category_target_min": 2,
+  "category_target_scale": 1
 }

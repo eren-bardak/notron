@@ -16,7 +16,7 @@ from popularity import normalize, parse_time, decay
 
 COUNTS_URL = 'https://api.x.com/2/tweets/counts/recent'
 MAX_QUERIES = 6
-MAX_POINTS = 15
+MAX_POINTS = 8
 GENERIC = {'haber', 'son dakika', 'turkiye', 'gundem', 'aciklama', 'gelisme', 'bugun'}
 
 
@@ -65,8 +65,8 @@ def parse_counts(payload, start, end, query, now):
     recent = sum(hours.get(end-timedelta(hours=i), 0) for i in range(1, 4)) / 3
     previous = sum(hours.get(end-timedelta(hours=i), 0) for i in range(4, 7)) / 3
     # Fixed scales keep unrelated stories and repeat runs from changing each other.
-    volume = min(10.0, 10 * math.log1p(total) / math.log1p(10000))
-    speed = min(5.0, 5 * math.log1p(recent) / math.log1p(1000))
+    volume = min(5.0, 5 * math.log1p(total) / math.log1p(10000))
+    speed = min(3.0, 3 * math.log1p(recent) / math.log1p(1000))
     return {'status': 'measured', 'query_hash': query_hash(query),
             'measured_at': now.isoformat(), 'window_start': start.isoformat(),
             'window_end': end.isoformat(), 'posts_24h': total,

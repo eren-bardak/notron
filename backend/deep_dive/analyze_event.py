@@ -173,6 +173,15 @@ decision, its specific reason and attributed counterposition, even when those
 facts are not numeric and do not appear in the chart. Do not replace that causal
 context with a generic introduction to the chart.
 
+Also supply publication_review revision=1. Mark newsworthy=true ONLY for a
+substantive new development with evidenced public impact, an institutional
+decision, a major competitive result, cultural significance, accountability or
+a scientific development. Give a concrete evidence-based reason (30+ characters).
+Routine celebrity appearances, fashion purchases, unconfirmed transfers, minor
+isolated crime and thin repetitive announcements do not qualify. Reject them
+with newsworthy=false. Background must add specific context distinct from the
+summary, at least 140 characters; the event explanation at least 100 characters.
+
 The output must contain:
 1. A concise background section of 3 to 6 sentences. Preserve the actual reason
    an earlier vote/decision was challenged or changed, its exact legal status,

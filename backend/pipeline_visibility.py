@@ -1,8 +1,8 @@
 """Publish eligible files; the public feed splits Gündem / Diğer Haberler."""
 from datetime import datetime, timedelta, timezone
 from numeric_data_quality import valid_analysis_timeline, valid_numeric_data
-from popularity import POLICY, current_score, event_thresholds, parse_time, read_all
-from editorial_quality import current_editorial
+from popularity import display_threshold, POLICY, current_score, event_thresholds, parse_time, read_all
+from editorial_quality import current_editorial, publication_quality
 from event_catalog import balanced_event
 
 
@@ -24,7 +24,7 @@ def ready_event_ids(events, analyses, now=None, limit=None):
     now = now or datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=POLICY['event_window_hours'])
     ready = {int(row['event_id']): row.get('analysis') for row in analyses if row.get('status') == 'ready'
-             and current_editorial(row.get('analysis')) and valid_questions(row.get('analysis'))}
+             and current_editorial(row.get('analysis')) and publication_quality(row.get('analysis')) and valid_questions(row.get('analysis'))}
     eligible = []
     for event in events:
         created = parse_time(event.get('created_at'))
@@ -72,5 +72,7 @@ def publish_ready_events(db):
     db.table('events').update({'is_visible': False}).eq('is_visible', True).execute()
     for rank, event_id in enumerate(visible, 1):
         db.table('events').update({'is_visible': True, 'popularity_rank': rank}).eq('id', event_id).execute()
-    print(f'Publication complete | Gündem={min(len(visible), POLICY["primary_limit"])} | Diğer Haberler={max(0, len(visible)-POLICY["primary_limit"])} | previous_year={now.year - 1} | insufficient_data={len(rejected)}')
+    overall = display_threshold([current_score(e, now) for e in recent if int(e['id']) in visible])
+    primary = sum(current_score(e, now) >= overall for e in recent if int(e['id']) in visible)
+    print(f'Publication complete | qualified={len(visible)} | agenda={primary} | insufficient_data={len(rejected)}')
     return visible

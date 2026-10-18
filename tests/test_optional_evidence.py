@@ -12,9 +12,10 @@ class OptionalEvidenceTests(unittest.TestCase):
     def setUp(self):
         self.now = datetime(2026, 9, 15, 16, tzinfo=timezone.utc)
         self.analysis = {
+            **{'publication_review': {'revision': 1, 'newsworthy': True, 'basis': 'public_impact', 'reason': 'Doğrulanmış yeni kararın kamu hizmetleri ve katılımcılar üzerinde somut etkisi bulunuyor.'}, 'background': {'narration': 'Önceki kararın uygulaması farklı kurumları ve katılımcıları etkiledi. Yeni görüşmeler bu uygulamada karşılaşılan somut belirsizlikleri ele alıyor. Kaynaklar önceki aşama ile yeni kararı ayrı olarak açıklıyor.', 'source_urls': ['https://a.example/1']}, 'event_explanation': {'narration': 'Kurum yeni kararını açıkladı ve uygulamanın bir sonraki aşamasına ilişkin bilgileri paylaştı. Sonuçların etkisi ilerleyen açıklamalarla izlenebilecek.', 'source_urls': ['https://b.example/2']}},
             "evidence_mode": "qualitative", "charts": [], "data_story": {"key_metrics": []},
-            "background": {"narration": "Kararın önceki aşamaları kaynaklarda açıklanıyor.", "source_urls": ["https://source-one.example/news/1"]},
-            "event_explanation": {"narration": "Yeni karar açıklandı; etkileri henüz kesinleşmedi.", "source_urls": ["https://source-two.example/news/2"]},
+            "background": {"narration": "Önceki kararın uygulaması farklı kurumları ve katılımcıları etkiledi. Yeni görüşmeler bu uygulamada karşılaşılan somut belirsizlikleri ele alıyor. Kaynaklar önceki aşama ile yeni kararı ayrı olarak açıklıyor.", "source_urls": ["https://source-one.example/news/1"]},
+            "event_explanation": {"narration": "Kurum yeni kararını açıkladı ve uygulamanın bir sonraki aşamasına ilişkin bilgileri paylaştı. Sonuçların etkisi ilerleyen açıklamalarla izlenebilecek.", "source_urls": ["https://source-two.example/news/2"]},
             "binary_questions": [{"question_type": "event", "question": "Bu kararda hız mı, daha geniş uzlaşma mı öncelikli olmalı?", "data_anchor": "Karar açıklandı; uygulama süreci henüz belli değil."}],
             "editorial_review": {"revision": 2, "event_specific": True, "matches_displayed_evidence": True, "evidence_relevant": True, "not_factual_recall": True, "question_intent": "event_implication"},
         }
