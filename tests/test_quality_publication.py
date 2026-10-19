@@ -3,10 +3,26 @@ from pathlib import Path
 from datetime import datetime,timezone
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from editorial_quality import publication_quality
-from generate_event_briefs import select_pending
+from generate_event_briefs import select_pending, BriefDraft, materialize_brief, validate_brief
+from test_analysis_evidence import draft_data, SOURCE_A, SOURCE_B, NOW
 from popularity import score_event,normalize,question_ids
 
 class QualityTests(unittest.TestCase):
+    def test_brief_copies_original_evidence_without_model_retyping(self):
+        payload={'event_id':213,'articles':[{'id':i,'source':source,'title':'Kaynak haberi','description':'Kaynağın yayımladığı özgün açıklama.','url':url,'published_at':NOW.isoformat()}
+            for i,source,url in [(1,'Birinci',SOURCE_A),(2,'İkinci',SOURCE_B)]]}
+        analysis=draft_data(numeric=False)
+        analysis['editorial_review']={'revision':2,'question_intent':'event_implication','event_specific':True,
+            'matches_displayed_evidence':True,'evidence_relevant':True,'not_factual_recall':True,
+            'tradeoff_present':True,'balanced_choices':True,'non_normative':True,'substantive_disagreement':True,'reason':'Kaynaklar belirsizlikleri açıklıyor.'}
+        draft=BriefDraft.model_validate({'event_id':213,'evidence_article_ids':[1,2],'analysis':analysis})
+        brief=materialize_brief(draft,payload)
+        self.assertTrue(validate_brief(brief,payload))
+        self.assertEqual(brief.evidence[0].finding,payload['articles'][0]['description'])
+        self.assertEqual(brief.evidence[0].published_at,payload['articles'][0]['published_at'])
+        draft.evidence_article_ids=[1,999]
+        with self.assertRaises(ValueError):materialize_brief(draft,payload)
+
     def test_thin_repeated_context_and_low_news_value_never_publish(self):
         good={'publication_review':{'revision':1,'newsworthy':True,'basis':'public_impact','reason':'Kamu hizmetlerini etkileyen yeni uygulama somut olarak açıklanmış.'},
               'background':{'narration':'Önceki kararın uygulaması farklı kurumları ve katılımcıları etkiledi. Yeni görüşmeler bu uygulamada karşılaşılan belirsizlikleri ele alıyor. Kaynaklar önceki aşamayı yeni sonuçtan ayrı açıklıyor.'},

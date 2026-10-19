@@ -16,7 +16,8 @@ def category_batches(payload):
     for category, seeds in groups.items():
         ids = {item['id'] for item in seeds}
         for item in payload:
-            if item['id'] not in ids and any(len(words[item['id']] & words[seed['id']]) >= 2 for seed in seeds):
+            if item['id'] not in ids and any(len(shared := words[item['id']] & words[seed['id']]) >= 2
+                    or any(len(word) >= 5 for word in shared) for seed in seeds):
                 ids.add(item['id'])
         yield category, [item for item in payload if item['id'] in ids]
 
@@ -31,6 +32,11 @@ def article_category(row):
         ('politics', ('/siyaset/',))):
         if any(part in path for part in parts):
             return category
+    title = normalize(row.get('title', ''))
+    if any(word in title for word in ('spacex','orionid','phobos','openai','nvidia','iphone','nasa')):
+        return 'technology'
+    if any(word in title for word in ('nutuk','kitap fuari','edebiyat','orkestra','film festivali')):
+        return 'entertainment'
     return category_id(None, row.get('title', ''))
 
 
