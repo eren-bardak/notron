@@ -8,6 +8,7 @@ import os
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
+from typing import Literal
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -15,7 +16,7 @@ from pydantic import BaseModel, Field
 from supabase import create_client
 
 from daily_budget import budget_client
-from deep_dive.models import EventAnalysis, ResearchBundle, Evidence
+from deep_dive.models import EventAnalysis, ResearchBundle, Evidence, StorySection, EditorialReview, PublicationReview
 from deep_dive.save_analysis import save_analysis
 from editorial_quality import current_editorial, publication_quality, RESEARCH_REVISION
 from event_catalog import balanced_event, category_id
@@ -31,10 +32,26 @@ class Brief(BaseModel):
     analysis: EventAnalysis
 
 
+class BriefBackground(StorySection):
+    narration: str = Field(min_length=140, max_length=1600)
+
+
+class BriefExplanation(StorySection):
+    narration: str = Field(min_length=100, max_length=1600)
+
+
+class ReviewedBrief(EventAnalysis):
+    publication_review: PublicationReview
+    editorial_review: EditorialReview
+    evidence_mode: Literal['qualitative'] = 'qualitative'
+    background: BriefBackground
+    event_explanation: BriefExplanation
+
+
 class BriefDraft(BaseModel):
     event_id: int
     evidence_article_ids: list[int] = Field(min_length=2, max_length=4)
-    analysis: EventAnalysis
+    analysis: ReviewedBrief
 
 
 class Briefs(BaseModel):

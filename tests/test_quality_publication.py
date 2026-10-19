@@ -20,6 +20,9 @@ class QualityTests(unittest.TestCase):
         self.assertTrue(validate_brief(brief,payload))
         self.assertEqual(brief.evidence[0].finding,payload['articles'][0]['description'])
         self.assertEqual(brief.evidence[0].published_at,payload['articles'][0]['published_at'])
+        missing=copy.deepcopy(analysis);missing['publication_review']=None
+        with self.assertRaises(ValueError):
+            BriefDraft.model_validate({'event_id':213,'evidence_article_ids':[1,2],'analysis':missing})
         draft.evidence_article_ids=[1,999]
         with self.assertRaises(ValueError):materialize_brief(draft,payload)
 
