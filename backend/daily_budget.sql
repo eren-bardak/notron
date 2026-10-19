@@ -43,11 +43,14 @@ declare
 begin
   -- One lock serializes claims across days, machines, manual runs and retries.
   perform pg_advisory_xact_lock(6812382215);
-  if p_operation = 'begin' then
+  if p_operation in ('begin', 'begin_supplement') then
     batch_day := (now() at time zone 'Europe/Istanbul')::date;
     insert into public.notron_daily_batches(day) values(batch_day) on conflict do nothing;
     select * into batch from public.notron_daily_batches where day = batch_day for update;
-    if batch.completed then return jsonb_build_object('ok', true, 'skip', true, 'reason', 'daily batch already completed'); end if;
+    if batch.completed and p_operation = 'begin' then return jsonb_build_object('ok', true, 'skip', true, 'reason', 'daily batch already completed'); end if;
+    if not batch.completed and p_operation = 'begin_supplement' then
+      return jsonb_build_object('ok', false, 'reason', 'finish or resume the original daily batch first');
+    end if;
     if batch.halted then return jsonb_build_object('ok', false, 'reason', 'budget requires investigation'); end if;
     if exists(select 1 from public.notron_daily_batches where lease_until > now()) then
       return jsonb_build_object('ok', false, 'reason', 'another batch holds the lease');
@@ -56,7 +59,8 @@ begin
     if batch.charged + batch.reserved + 250000 > 1500000 then
       return jsonb_build_object('ok', false, 'reason', 'daily budget exhausted');
     end if;
-    insert into public.notron_batch_runs(id, day) values(p_run_id, batch_day);
+    insert into public.notron_batch_runs(id, day, result) values(p_run_id, batch_day,
+      jsonb_build_object('supplement', p_operation = 'begin_supplement'));
     update public.notron_daily_batches set charged = charged + 250000,
       active_run = p_run_id, lease_until = now() + interval '30 minutes' where day = batch_day;
     return jsonb_build_object('ok', true, 'day', batch_day, 'event_ids', batch.event_ids);
@@ -82,6 +86,11 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'batch lease expired');
   end if;
   if p_operation = 'finish' then
+    if exists(select 1 from public.notron_batch_runs where id = p_run_id and result->>'supplement' = 'true') then
+      update public.notron_batch_runs set finished_at = now(), result = coalesce(p_result, '{}'::jsonb) || '{"supplement":true}'::jsonb where id = p_run_id;
+      update public.notron_daily_batches set active_run = null, lease_until = null where day = batch_day;
+      return jsonb_build_object('ok', true);
+    end if;
     update public.notron_batch_runs set finished_at = now(), result = p_result where id = p_run_id;
     update public.notron_daily_batches set active_run = null, lease_until = null,
       completed = coalesce((p_result->>'complete')::boolean, false), last_result = p_result where day = batch_day;
@@ -89,7 +98,7 @@ begin
   end if;
   if batch.halted then return jsonb_build_object('ok', false, 'reason', 'budget halted'); end if;
   if p_operation = 'reserve' then
-    if p_request_id is null or p_amount is null or p_amount not in (5000,70000,900000) then
+    if p_request_id is null or p_amount is null or p_amount not in (5000,50000,70000,900000) then
       return jsonb_build_object('ok', false, 'reason', 'invalid reservation');
     end if;
     select * into reservation from public.notron_api_reservations where id = p_request_id;

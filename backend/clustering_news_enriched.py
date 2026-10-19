@@ -13,7 +13,8 @@ from supabase import create_client
 from popularity import POLICY
 from daily_budget import budget_client
 from event_catalog import balanced_articles, category_id
-from catalog_sampling import sample_articles
+from catalog_sampling import sample_articles, article_category, category_batches
+from collections import defaultdict
 from popularity import normalize
 
 NEWS_WINDOW_HOURS = POLICY["event_window_hours"]
@@ -513,6 +514,7 @@ def main():
     payload = [
         {
             "id": int(item["id"]),
+            "category_hint": article_category(item),
             "source": text(item.get("source")),
             "source_side": source_leanings.get(normalize(item.get("source"))),
             "existing_event_id": news_to_event.get(int(item["id"])),
@@ -568,6 +570,8 @@ def main():
     x_query_terms: 2 or 3 short, specific Turkish search phrases jointly identifying
     this occurrence (person/place + concrete action/object). No operators,
     quotes, URLs, hashtags or generic terms like haber, Türkiye, son dakika.
+    Each phrase must be short (one to three words), so real posts can match both:
+    examples ["Çukurova Belediyesi", "gözaltı"] or ["Orionid", "meteor"].
 
     newsworthy: true ONLY for a substantive new development: public impact,
     institutional decisions, major competitive results, cultural significance,
@@ -597,33 +601,28 @@ def main():
     inside it.
     """
 
-        for attempt in range(2):
-            try:
-                answer = ai.responses.parse(
-                    model=MODEL,
-                    reasoning={"effort": "low"},
-                    **search_options,
-                    input=[
-                        {
-                            "role": "system",
-                            "content": prompt,
-                        },
-                        {
-                            "role": "user",
-                            "content": json.dumps(
-                                payload,
-                                ensure_ascii=False,
-                            ),
-                        },
-                    ],
-                    text_format=Result,
-                    max_output_tokens=6000 if ECONOMY_MODE else 12000,
-                ).output_parsed
-                break
-            except ValidationError:
-                if attempt == 1:
-                    raise
-                print("Incomplete structured response; retrying clustering once.")
+        # Give smaller categories their own bounded text-only pass. A political
+        # headline flood cannot consume the output budget for arts or technology.
+        groups = list(category_batches(payload)) if ECONOMY_MODE else [('all', payload)]
+        generated = []
+        for category, items in groups:
+            if not any(item['is_new'] for item in items):
+                continue
+            for attempt in range(2):
+                try:
+                    result = ai.responses.parse(model=MODEL, reasoning={"effort": "low"}, **search_options,
+                        input=[{"role":"system", "content":prompt + "\nCategory hints organize input only; verify the actual subject and do not relabel stories to fill a category."},
+                               {"role":"user", "content":json.dumps(items, ensure_ascii=False)}],
+                        text_format=Result, max_output_tokens=3000 if ECONOMY_MODE else 12000).output_parsed
+                    if result:
+                        generated.extend(result.events)
+                    print(f'Category grouping | hint={category} | articles={len(items)} | events={len(result.events) if result else 0}')
+                    break
+                except ValidationError:
+                    if attempt == 1:
+                        raise
+                    print("Incomplete structured response; retrying category grouping once.")
+        answer = Result(events=generated)
 
 
 

@@ -7,6 +7,12 @@
     "https://www.sabah.com.tr/rss/kultur-sanat.xml",
     "https://www.sabah.com.tr/rss/teknokulis.xml"
   ],
+  "Habertürk": [
+    "https://www.haberturk.com/rss/magazin.xml",
+    "https://www.haberturk.com/rss/kategori/kultur-sanat.xml",
+    "https://www.haberturk.com/rss/kategori/sinema.xml",
+    "https://www.haberturk.com/rss/kategori/teknoloji.xml"
+  ],
   "A Haber": [
     "https://www.ahaber.com.tr/rss/magazin.xml"
   ],

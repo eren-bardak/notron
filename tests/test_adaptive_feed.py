@@ -5,6 +5,12 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from popularity import display_threshold,event_thresholds
 
 class AdaptiveFeedTests(unittest.TestCase):
+    def test_valid_small_category_is_not_erased_by_agenda_floor(self):
+        now=datetime(2026,10,19,tzinfo=timezone.utc)
+        row={'id':1,'category':'sports','popularity_score':.8,'popularity_updated_at':now.isoformat()}
+        self.assertLess(event_thresholds([row],now)[1],.8)
+        self.assertEqual(display_threshold([.8]),2)
+
     def test_sparse_and_dense_score_distributions(self):
         self.assertEqual(display_threshold([]),2)
         self.assertEqual(display_threshold([float('nan'),float('inf'),0,-1]),2)

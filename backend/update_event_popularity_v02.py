@@ -9,6 +9,9 @@ from popularity import POLICY, normalize, parse_time, read_all, score_event, sou
 from google_trends import event_trend_bonus, fetch_trends
 from event_catalog import balanced_event, category_id
 from x_signals import XCounts, build_query, signal_points
+from x_engagement import XEngagement, combined_x_points
+from collections import defaultdict, deque
+from editorial_quality import current_editorial, publication_quality
 
 
 def main():
@@ -47,6 +50,8 @@ def main():
             articles_by_event[int(link['event_id'])].append(article)
     results = []
     x_counts = XCounts(db, now)
+    x_engagement = XEngagement(db, now)
+    paid_x = os.getenv('NOTRON_X_PHASE') != 'deferred'
     for event in events:
         result = score_event(event, links, news_by_id, sides, micro, comments, answers, analysis_by_id.get(int(event['id'])), now)
         trend = event_trend_bonus(articles_by_event[int(event['id'])], trends, now)
@@ -57,18 +62,33 @@ def main():
     # Spend only on the strongest cross-spectrum candidates. One counts request
     # includes all 24 hourly buckets; individual posts/likes are never purchased.
     results.sort(key=lambda pair: (-pair[1]['score'], int(pair[0]['id'])))
-    for event, result in results:
+    # One candidate from each category before a second candidate from any category.
+    buckets = defaultdict(deque)
+    for pair in results:
+        buckets[category_id(pair[0].get('category'), pair[0].get('title', ''))].append(pair)
+    ordered = []
+    while buckets:
+        for category in list(buckets):
+            ordered.append(buckets[category].popleft())
+            if not buckets[category]:
+                del buckets[category]
+    for event, result in ordered:
         balanced = balanced_event({'source_count':result['source_count'],
             'left_source_count':len(result['side_sources']['left']),
             'right_source_count':len(result['side_sources']['right'])})
         metadata = event.get('data') if isinstance(event.get('data'), dict) else {}
         terms = metadata.get('x_query_terms')
         worthwhile = metadata.get('newsworthy') is not False and not metadata.get('publication_excluded_reason')
-        signal = x_counts.measure(terms, metadata.get('x_signal')) if balanced and worthwhile else None
+        analysis = analysis_by_id.get(int(event['id']))
+        reviewed = current_editorial(analysis) and publication_quality(analysis)
+        signal = x_counts.measure(terms, metadata.get('x_signal')) if balanced and worthwhile and paid_x and reviewed else None
         if signal is not None:
             metadata = {**metadata, 'x_signal':signal}
+        engagement = x_engagement.measure(terms, metadata.get('x_engagement_signal')) if balanced and worthwhile and paid_x and reviewed else None
+        if engagement is not None:
+            metadata = {**metadata, 'x_engagement_signal':engagement}
         result['catalog_data'] = metadata
-        result['score'] += signal_points(metadata.get('x_signal'), build_query(terms), now) if balanced else 0
+        result['score'] += combined_x_points(metadata.get('x_signal'), metadata.get('x_engagement_signal'), terms, now) if balanced and worthwhile else 0
     results.sort(key=lambda pair: (-pair[1]['score'], int(pair[0]['id'])))
     print('RANK | SCORE | SOURCES | BALLOTS | EVENT')
     for rank, (event, result) in enumerate(results, 1):

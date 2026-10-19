@@ -22,7 +22,7 @@ on:
         type: choice
         required: true
         default: test
-        options: [test, economy, full, resume, scores]
+        options: [test, economy, full, resume, scores, supplement]
 # The daily schedule moves to Render. Merge this cutover only after Render is ready.
 permissions:
   contents: read
@@ -86,15 +86,15 @@ jobs:
     name: Bounded score refresh and retry
     needs: checks
     if: >-
-      (github.event_name == 'workflow_dispatch' && (inputs.mode == 'resume' || inputs.mode == 'scores')) ||
-      (github.event_name == 'push' && (contains(github.event.head_commit.message, '[bounded-resume]') || contains(github.event.head_commit.message, '[scores-only]')))
+      (github.event_name == 'workflow_dispatch' && (inputs.mode == 'resume' || inputs.mode == 'scores' || inputs.mode == 'supplement')) ||
+      (github.event_name == 'push' && (contains(github.event.head_commit.message, '[bounded-resume]') || contains(github.event.head_commit.message, '[scores-only]') || contains(github.event.head_commit.message, '[category-refresh]')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
       group: notron-production-news
       cancel-in-progress: false
     env:
-      OPERATION: ${{ (inputs.mode == 'scores' || contains(github.event.head_commit.message, '[scores-only]')) && 'scores' || 'resume' }}
+      OPERATION: ${{ (inputs.mode == 'supplement' || contains(github.event.head_commit.message, '[category-refresh]')) && 'supplement' || (inputs.mode == 'scores' || contains(github.event.head_commit.message, '[scores-only]')) && 'scores' || 'resume' }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -112,6 +112,8 @@ jobs:
         run: |
           if [ "$OPERATION" = scores ]; then
             python backend/run_pipeline.py --mode economy --scores-only
+          elif [ "$OPERATION" = supplement ]; then
+            python backend/run_pipeline.py --mode economy --supplement
           else
             python backend/run_pipeline.py --mode economy --resume
           fi
