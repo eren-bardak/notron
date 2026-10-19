@@ -32,6 +32,11 @@ def article_category(row):
         ('politics', ('/siyaset/',))):
         if any(part in path for part in parts):
             return category
+    title = normalize(row.get('title', ''))
+    if any(word in title for word in ('spacex','orionid','phobos','openai','nvidia','iphone','nasa')):
+        return 'technology'
+    if any(word in title for word in ('nutuk','kitap fuari','edebiyat','orkestra','film festivali')):
+        return 'entertainment'
     return category_id(None, row.get('title', ''))
 
 
