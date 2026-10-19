@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from .models import BinaryQuestion, EventAnalysis, ResearchBundle, EditorialReview
 from numeric_data_quality import valid_analysis_timeline
+from editorial_quality import publication_quality
 from .editorial_overrides import curate_known_event
 from .question_style import CONTESTED_QUESTION_RULES
 from .analysis_evidence import analysis_output_model, evidence_catalog, materialize_analysis
@@ -303,6 +304,16 @@ is pending.
 """
     else:
         prompt += "\nSet evidence_mode=numeric."
+    prompt += """
+Both numeric and qualitative stories require publication_review revision=1.
+Mark newsworthy=true only for a substantive new development with evidenced
+public impact, an institutional decision, a major competitive result, cultural
+significance, accountability or a scientific development. Use the matching basis
+and a concrete evidence-based reason of at least30 characters. Reject routine
+celebrity appearances, thin announcements and minor isolated incidents.
+Background must add specific context distinct from the summary, at least140
+characters; event_explanation at least100 characters. Never invent context.
+"""
     prompt += "\n" + CONTESTED_QUESTION_RULES
     now = datetime.now(timezone.utc)
     prompt += f"\nCurrent UTC date: {now.date().isoformat()}. Baseline year ONLY for chronological evidence: {now.year - 1}.\n"
@@ -344,6 +355,8 @@ question must describe the selected evidence, without changing its scope.
                     raise ValueError("Copy source URLs exactly from research evidence; do not introduce sources.")
             if research.numeric_series:
                 curate_known_event(research, result)
+            if not publication_quality(result.model_dump(mode="json")):
+                raise ValueError('A substantive publication_review and distinct sourced background/explanation are required; reject low-news-value stories.')
             if not valid_analysis_timeline(result.model_dump(mode="json"),
                                            [item.model_dump(mode="json") for item in research.numeric_series]):
                 if not research.numeric_series:

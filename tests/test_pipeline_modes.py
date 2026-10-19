@@ -15,6 +15,30 @@ import generate_event_deep_dives as research_pipeline
 
 
 class PipelineModeTests(unittest.TestCase):
+    def test_scores_only_never_claims_budget_and_disables_new_x_requests(self):
+        with patch.dict(os.environ, {'SUPABASE_URL':'test','SUPABASE_KEY':'test','X_BEARER_TOKEN':'never-forward','NOTRON_RUN_ID':'never-forward'}, clear=True), \
+             patch.object(sys,'argv',['run_pipeline.py','--mode','economy','--scores-only']), \
+             patch('daily_budget.ledger') as ledger, \
+             patch.object(run_pipeline.subprocess,'run') as run:
+            self.assertEqual(run_pipeline.main(),0)
+        ledger.assert_not_called()
+        commands=[call.args[0] for call in run.call_args_list]
+        self.assertEqual([Path(c[1]).name for c in commands],['update_event_popularity_v02.py','generate_event_deep_dives.py'])
+        self.assertIn('--validate-only',commands[1])
+        for call in run.call_args_list:
+            self.assertEqual(call.kwargs['env']['X_BEARER_TOKEN'],'')
+            self.assertEqual(call.kwargs['env']['NOTRON_RUN_ID'],'')
+
+    def test_resume_reuses_budget_and_skips_fetch_grouping_and_new_briefs(self):
+        with patch.dict(os.environ, {'SUPABASE_URL':'test','SUPABASE_KEY':'test','OPENAI_API_KEY':'test'}), \
+             patch.object(sys,'argv',['run_pipeline.py','--mode','economy','--resume']), \
+             patch('supabase.create_client'), \
+             patch('daily_budget.ledger',return_value={'ok':True,'event_ids':[1,2,3]}) as ledger, \
+             patch.object(run_pipeline.subprocess,'run') as run:
+            self.assertEqual(run_pipeline.main(),0)
+        self.assertEqual([Path(c.args[0][1]).name for c in run.call_args_list],['update_event_popularity_v02.py','generate_event_deep_dives.py'])
+        self.assertEqual([c.args[1] for c in ledger.call_args_list],['begin','finish'])
+
     def test_offline_mode_needs_no_credentials_and_removes_live_secrets(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "never-forward", "SUPABASE_KEY": "never-forward"}), \
              patch.object(sys, "argv", ["run_pipeline.py", "--mode", "test"]), \
