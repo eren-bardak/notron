@@ -47,13 +47,14 @@ def current_score(event, now):
     return score * decay(parse_time(event.get('popularity_updated_at')), now)
 
 
-def display_threshold(scores, target=None):
+def display_threshold(scores, target=None, floor=None):
     """An inventory-dependent score boundary, never a fixed story-count cap."""
     ranked = sorted((score for score in scores if math.isfinite(score) and score > 0), reverse=True)
+    minimum = POLICY['display_threshold_min'] if floor is None else floor
     if not ranked:
-        return POLICY['display_threshold_min']
+        return minimum
     size = target or max(POLICY['display_target_min'], math.ceil(math.sqrt(len(ranked)) * POLICY['display_target_scale']))
-    return max(POLICY['display_threshold_min'], ranked[min(size, len(ranked))-1] * .95)
+    return max(minimum, ranked[min(size, len(ranked))-1] * .95)
 
 
 def event_thresholds(events, now):
@@ -65,7 +66,7 @@ def event_thresholds(events, now):
     for category in set(categories.values()):
         values = [scores[i] for i in scores if categories[i] == category]
         target = max(POLICY['category_target_min'], math.ceil(math.sqrt(len(values)) * POLICY['category_target_scale']))
-        cutoffs[category] = min(overall, display_threshold(values, target))
+        cutoffs[category] = min(overall, display_threshold(values, target, POLICY['category_threshold_min']))
     return {event_id: cutoffs[category] for event_id, category in categories.items()}
 
 

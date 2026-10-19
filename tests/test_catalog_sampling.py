@@ -2,11 +2,18 @@ import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-from catalog_sampling import sample_articles
+from catalog_sampling import sample_articles, category_batches
 from event_catalog import category_id
 
 
 class CatalogSamplingTests(unittest.TestCase):
+    def test_category_group_can_find_same_occurrence_in_general_feed(self):
+        rows=[{'id':1,'title':'Orionid meteor yağmuru bu gece','category_hint':'technology'},
+              {'id':2,'title':'Meteor yağmuru Orionid için hazırlık','category_hint':'general'},
+              {'id':3,'title':'Mecliste bütçe görüşmeleri','category_hint':'politics'}]
+        groups=dict(category_batches(rows))
+        self.assertEqual({r['id'] for r in groups['technology']},{1,2})
+        self.assertEqual({r['id'] for r in groups['politics']},{3})
     def test_prolific_publisher_does_not_displace_smaller_category(self):
         rows = [{'id': i, 'title': 'Gündem haberi', 'source': 'Large', 'url': f'https://a.test/gundem/{i}'} for i in range(100)]
         rows += [{'id': 101, 'title': 'Yeni keşif', 'source': 'Small', 'url': 'https://b.test/bilim-teknoloji/discovery'}]

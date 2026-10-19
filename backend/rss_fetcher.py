@@ -182,6 +182,12 @@ for source in sources:
         feed = feedparser.parse(
             response.content
         )
+        feed_urls = list(dict.fromkeys(entry.get('link', '').strip() for entry in feed.entries if entry.get('link')))
+        existing_urls = set()
+        for offset in range(0, len(feed_urls), 100):
+            rows = supabase.table('news').select('url').in_('url', feed_urls[offset:offset+100]).execute().data
+            existing_urls.update(row['url'] for row in rows)
+        pending_rows = []
 
         recent_count = 0
 
@@ -213,18 +219,10 @@ for source in sources:
 
             # Keep previously processed rows unchanged. A genuinely new URL is
             # inserted below and receives a fresh database-generated ID.
-            existing = (
-                supabase.table("news")
-                .select("id")
-                .eq("url", url)
-                .limit(1)
-                .execute()
-                .data
-            )
-
-            if existing:
+            if url in existing_urls:
                 total_duplicates += 1
                 continue
+            existing_urls.add(url)
 
             cover_image_url = image_from_rss(article)
 
@@ -241,13 +239,18 @@ for source in sources:
                 "description": description,
                 "content_type": "rss",
                 "clustered_at": None,
+                "cover_image_url": None,
             }
 
             if cover_image_url:
                 news_data["cover_image_url"] = cover_image_url
 
-            supabase.table("news").insert(news_data).execute()
-            total_inserted += 1
+            pending_rows.append(news_data)
+
+        for offset in range(0, len(pending_rows), 50):
+            batch = pending_rows[offset:offset+50]
+            supabase.table('news').insert(batch).execute()
+            total_inserted += len(batch)
 
         if recent_count > 0:
             working_sources += 1

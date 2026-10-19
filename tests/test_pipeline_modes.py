@@ -36,8 +36,21 @@ class PipelineModeTests(unittest.TestCase):
              patch('daily_budget.ledger',return_value={'ok':True,'event_ids':[1,2,3]}) as ledger, \
              patch.object(run_pipeline.subprocess,'run') as run:
             self.assertEqual(run_pipeline.main(),0)
-        self.assertEqual([Path(c.args[0][1]).name for c in run.call_args_list],['update_event_popularity_v02.py','generate_event_deep_dives.py'])
+        self.assertEqual([Path(c.args[0][1]).name for c in run.call_args_list],['update_event_popularity_v02.py','generate_event_deep_dives.py','update_event_popularity_v02.py','generate_event_deep_dives.py'])
         self.assertEqual([c.args[1] for c in ledger.call_args_list],['begin','finish'])
+
+    def test_supplement_keeps_completed_batch_and_never_runs_paid_deep_research(self):
+        with patch.dict(os.environ, {'SUPABASE_URL':'test','SUPABASE_KEY':'test','OPENAI_API_KEY':'test'}), \
+             patch.object(sys,'argv',['run_pipeline.py','--mode','economy','--supplement']), \
+             patch('supabase.create_client'), \
+             patch('daily_budget.ledger',return_value={'ok':True}) as ledger, \
+             patch.object(run_pipeline.subprocess,'run') as run:
+            self.assertEqual(run_pipeline.main(),0)
+        self.assertEqual(ledger.call_args_list[0].args[1],'begin_supplement')
+        for call in run.call_args_list:
+            if Path(call.args[0][1]).name == 'generate_event_deep_dives.py':
+                self.assertIn('--validate-only',call.args[0])
+
 
     def test_offline_mode_needs_no_credentials_and_removes_live_secrets(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "never-forward", "SUPABASE_KEY": "never-forward"}), \

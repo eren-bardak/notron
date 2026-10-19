@@ -28,11 +28,12 @@ def main():
     parser.add_argument('--check', action='store_true', help='Check credentials and script paths without making requests.')
     parser.add_argument('--resume', action='store_true', help='Resume scoring and unfinished selected stories using the same daily budget.')
     parser.add_argument('--scores-only', action='store_true', help='Recompute scores and publication without paid API calls.')
+    parser.add_argument('--supplement', action='store_true', help='Refresh category coverage with text-only briefs within the original daily budget.')
     args = parser.parse_args()
-    if (args.resume or args.scores_only) and args.mode != 'economy':
+    if (args.resume or args.scores_only or args.supplement) and args.mode != 'economy':
         parser.error('Maintenance requires --mode economy.')
-    if args.resume and args.scores_only:
-        parser.error('Choose --resume or --scores-only.')
+    if sum([args.resume, args.scores_only, args.supplement]) > 1:
+        parser.error('Choose one maintenance operation.')
     if args.mode == 'test':
         if args.check:
             print('Offline test mode. No API credentials are needed.')
@@ -62,6 +63,8 @@ def main():
         return 0
     env = pipeline_environment(args.mode)
     steps = ['update_event_popularity_v02.py', 'generate_event_deep_dives.py'] if args.resume or args.scores_only else STEPS
+    if args.supplement:
+        steps = ['rss_fetcher.py', 'clustering_news_enriched.py', 'update_event_popularity_v02.py', 'generate_event_briefs.py']
     if args.scores_only:
         # Scoring can reuse cached X measurements, but cannot buy new ones.
         env['X_BEARER_TOKEN'] = ''
@@ -90,7 +93,7 @@ def main():
             db = create_client(env['SUPABASE_URL'], env['SUPABASE_KEY'])
             env['NOTRON_RUN_ID'] = str(uuid.uuid4())
             os.environ['NOTRON_RUN_ID'] = env['NOTRON_RUN_ID']
-            claim = ledger(db, 'begin')
+            claim = ledger(db, 'begin_supplement' if args.supplement else 'begin')
             if claim.get('skip'):
                 print(claim.get('reason', 'Daily batch already completed.'), flush=True)
                 return 0
@@ -99,9 +102,17 @@ def main():
             print(f'Running {script}', flush=True)
             remaining = max(1, deadline - time.monotonic()) if args.mode == 'economy' else 9000
             command = [sys.executable, str(BACKEND / script)]
+            env['NOTRON_X_PHASE'] = 'deferred'
             if args.scores_only and script == 'generate_event_deep_dives.py':
                 command.append('--validate-only')
             subprocess.run(command, cwd=BACKEND, env=env, check=True, timeout=remaining)
+        if args.mode == 'economy' and not args.scores_only:
+            env['NOTRON_X_PHASE'] = 'measure'
+            subprocess.run([sys.executable, str(BACKEND / 'update_event_popularity_v02.py')], cwd=BACKEND,
+                           env=env, check=True, timeout=max(1, deadline-time.monotonic()))
+        if args.mode == 'economy' and not args.scores_only:
+            subprocess.run([sys.executable, str(BACKEND / 'generate_event_deep_dives.py'), '--validate-only'],
+                           cwd=BACKEND, env=env, check=True, timeout=max(1, deadline-time.monotonic()))
         outcome = {'complete': True, 'reason': 'selected cross-spectrum stories passed publication checks'}
     except Exception as error:
         outcome['reason'] = type(error).__name__
