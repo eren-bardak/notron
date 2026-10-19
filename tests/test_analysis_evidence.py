@@ -60,11 +60,12 @@ def research_bundle(numeric=True):
 def draft_data(numeric=True):
     return {
         "evidence_mode": "numeric" if numeric else "qualitative",
+        "publication_review": {"revision": 1, "newsworthy": True, "basis": "public_impact", "reason": "Yeni ölçüm sonuçları hizmetlerin değerlendirilmesinde kullanılan kapsamı açıklıyor."},
         "editorial_review": None, "schema_version": 2, "question_revision": 3,
         "event_id": 213, "title": "Yeni ölçüm yayımlandı", "generated_at": NOW.isoformat(),
-        "background": {"title": "Arka plan", "narration": "Önceki yöntem korundu.",
+        "background": {"title": "Arka plan", "narration": "Önceki ölçüm yöntemi aynı kapsamı koruyarak uygulanmıştı. Kurum yöntem raporunda ölçümün hangi nüfusu kapsadığını açıkladı. Önceki sonuçlarla karşılaştırmanın sınırları raporda ayrıca belirtiliyor.",
                        "source_urls": [SOURCE_B]},
-        "event_explanation": {"title": "Ne oldu?", "narration": "Yeni rapor yayımlandı.",
+        "event_explanation": {"title": "Ne oldu?", "narration": "Kurum yeni ölçüm sonuçlarını yayımladı ve raporun kapsadığı yerel durumu açıkladı. Bulgular tek başına bu değişimin nedenini kanıtlamıyor.",
                               "source_urls": [SOURCE_A]},
         "data_story": {"headline": "Yeni sonuçlar", "baseline": "Önceki dönem.",
                        "key_metrics": [], "hidden_patterns": [],
@@ -83,6 +84,21 @@ def draft_data(numeric=True):
 
 
 class AnalysisEvidenceTests(unittest.TestCase):
+    def test_qualitative_publication_review_is_required_before_question_editing(self):
+        research = research_bundle(numeric=False)
+        missing = draft_data(numeric=False)
+        missing['publication_review'] = None
+        drafts = iter([missing, draft_data(numeric=False)])
+        client = Mock()
+        client.responses.parse.side_effect = lambda **kwargs: SimpleNamespace(
+            output_parsed=kwargs['text_format'].model_validate(next(drafts)))
+        with patch('deep_dive.analyze_event.review_questions', side_effect=lambda *args, **kwargs: args[3]) as review:
+            result = analyze_event(client, 'test-model', research)
+        self.assertEqual(client.responses.parse.call_count, 2)
+        review.assert_called_once()
+        self.assertTrue(result.publication_review.newsworthy)
+        self.assertIn('Both numeric and qualitative stories require publication_review', client.responses.parse.call_args_list[0].kwargs['input'][0]['content'])
+
     def test_section_sources_accept_exact_evidence_and_reject_invented_or_empty_sources(self):
         research = research_bundle()
         output_model = analysis_output_model(research)

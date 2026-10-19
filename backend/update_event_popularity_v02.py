@@ -63,7 +63,8 @@ def main():
             'right_source_count':len(result['side_sources']['right'])})
         metadata = event.get('data') if isinstance(event.get('data'), dict) else {}
         terms = metadata.get('x_query_terms')
-        signal = x_counts.measure(terms, metadata.get('x_signal')) if balanced else None
+        worthwhile = metadata.get('newsworthy') is not False and not metadata.get('publication_excluded_reason')
+        signal = x_counts.measure(terms, metadata.get('x_signal')) if balanced and worthwhile else None
         if signal is not None:
             metadata = {**metadata, 'x_signal':signal}
         result['catalog_data'] = metadata

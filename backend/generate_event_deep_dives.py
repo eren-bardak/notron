@@ -17,7 +17,7 @@ from event_images import refresh_event_covers
 from numeric_data_quality import valid_analysis_timeline, has_event_evidence
 from pipeline_visibility import enforce_previous_year_gate, publish_ready_events, valid_questions, valid_numeric_data
 from popularity import POLICY, current_score, event_thresholds
-from editorial_quality import RESEARCH_REVISION, current_editorial
+from editorial_quality import RESEARCH_REVISION, current_editorial, publication_quality
 from daily_budget import budget_client, coverage_rank, ledger, BudgetError
 from event_catalog import balanced_event
 
@@ -144,7 +144,7 @@ def main() -> None:
 
             old_analysis = cached.get("analysis") or {}
             question_only = False
-            if (not args.force and current_editorial(old_analysis) and old_analysis.get("schema_version") == 2
+            if (not args.force and current_editorial(old_analysis) and publication_quality(old_analysis) and old_analysis.get("schema_version") == 2
                     and old_analysis.get("question_revision") == 3 and valid_questions(old_analysis)
                     and valid_analysis_timeline(old_analysis, [series.model_dump(mode="json") for series in research.numeric_series])):
                 # A wording repair needs no second data-story generation or web search.

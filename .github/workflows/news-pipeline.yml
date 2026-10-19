@@ -22,7 +22,7 @@ on:
         type: choice
         required: true
         default: test
-        options: [test, economy, full]
+        options: [test, economy, full, resume, scores]
 # The daily schedule moves to Render. Merge this cutover only after Render is ready.
 permissions:
   contents: read
@@ -46,7 +46,7 @@ jobs:
     name: Live news refresh
     needs: checks
     # Code pushes and the default manual test never start paid work.
-    if: github.event_name == 'workflow_dispatch' && inputs.mode != 'test'
+    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'economy' || inputs.mode == 'full')
     runs-on: ubuntu-latest
     timeout-minutes: 180
     concurrency:
@@ -82,3 +82,36 @@ jobs:
           path: backend/editorial-review.json
           if-no-files-found: warn
           retention-days: 7
+  maintenance:
+    name: Bounded score refresh and retry
+    needs: checks
+    if: >-
+      (github.event_name == 'workflow_dispatch' && (inputs.mode == 'resume' || inputs.mode == 'scores')) ||
+      (github.event_name == 'push' && (contains(github.event.head_commit.message, '[bounded-resume]') || contains(github.event.head_commit.message, '[scores-only]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: notron-production-news
+      cancel-in-progress: false
+    env:
+      OPERATION: ${{ (inputs.mode == 'scores' || contains(github.event.head_commit.message, '[scores-only]')) && 'scores' || 'resume' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements.txt
+      - name: Reuse original stories and shared daily budget
+        run: |
+          if [ "$OPERATION" = scores ]; then
+            python backend/run_pipeline.py --mode economy --scores-only
+          else
+            python backend/run_pipeline.py --mode economy --resume
+          fi
