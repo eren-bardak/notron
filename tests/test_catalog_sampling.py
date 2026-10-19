@@ -14,6 +14,11 @@ class CatalogSamplingTests(unittest.TestCase):
         groups=dict(category_batches(rows))
         self.assertEqual({r['id'] for r in groups['technology']},{1,2})
         self.assertEqual({r['id'] for r in groups['politics']},{3})
+
+    def test_named_book_can_link_culture_and_political_reporting(self):
+        rows=[{'id':1,'title':'Nutuk dünyaya açılıyor','category_hint':'entertainment'},
+              {'id':2,'title':'Bakan Ersoy Nutuk için konuştu','category_hint':'politics'}]
+        self.assertEqual(len(dict(category_batches(rows))['entertainment']),2)
     def test_prolific_publisher_does_not_displace_smaller_category(self):
         rows = [{'id': i, 'title': 'Gündem haberi', 'source': 'Large', 'url': f'https://a.test/gundem/{i}'} for i in range(100)]
         rows += [{'id': 101, 'title': 'Yeni keşif', 'source': 'Small', 'url': 'https://b.test/bilim-teknoloji/discovery'}]

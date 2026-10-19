@@ -31,8 +31,25 @@ class Brief(BaseModel):
     analysis: EventAnalysis
 
 
+class BriefDraft(BaseModel):
+    event_id: int
+    evidence_article_ids: list[int] = Field(min_length=2, max_length=4)
+    analysis: EventAnalysis
+
+
 class Briefs(BaseModel):
-    events: list[Brief] = Field(max_length=MAX_BRIEFS)
+    events: list[BriefDraft] = Field(max_length=MAX_BRIEFS)
+
+
+def materialize_brief(draft, payload):
+    originals = {row['id']: row for row in payload['articles']}
+    ids = draft.evidence_article_ids
+    if draft.event_id != payload['event_id'] or len(set(ids)) != len(ids) or not set(ids) <= originals.keys():
+        raise ValueError('Select distinct article IDs belonging to this event')
+    evidence = [Evidence(title=originals[i]['title'], finding=originals[i]['description'],
+        publisher=originals[i]['source'], url=originals[i]['url'], published_at=originals[i]['published_at'],
+        evidence_type='current') for i in ids]
+    return Brief(event_id=draft.event_id, evidence=evidence, analysis=draft.analysis)
 
 
 def select_pending(events, stored, now):
@@ -103,7 +120,7 @@ def main():
         sources = {}
         for row in sorted(rows, key=lambda r: -len(r.get('description') or '')):
             if row.get('url') and len(row.get('description') or '') >= 80:
-                sources.setdefault(row['source'], {k: row[k] for k in ('source','title','url','description','published_at')})
+                sources.setdefault(row['source'], {k: row[k] for k in ('id','source','title','url','description','published_at')})
         rows = list(sources.values())[:4]
         for row in rows:
             row['description'] = row['description'][:1800]
@@ -130,15 +147,22 @@ or conditional outlook; no factual quiz, guilt poll, value judgement or "ne yapÄ
 Use balanced short choices and a genuine uncertainty option. Supply editorial_review
 revision2 and publication_review revision1 with an evidenced newsworthiness reason;
 set true checks only if they actually pass. generated_at must use the supplied time.
-Evidence finding must be a short EXACT substring of the supplied description;
-copy publisher, URL and published_at exactly. Cite only evidence URLs, at least two
+Select evidence_article_ids from the supplied article IDs. The backend copies
+their original excerpts, publishers, URLs and dates without retyping. Cite only supplied URLs, at least two
 publisher domains. Do not add facts or historical dates absent from the excerpts.
 Avoid rewriting any existing ballot: these events have no ready reviewed analysis.'''},
         {'role':'user','content':json.dumps({'now':now.isoformat(),'events':list(payloads.values())},ensure_ascii=False)}],
         text_format=Briefs).output_parsed
     seen = set()
-    for brief in result.events if result else []:
+    for draft in result.events if result else []:
+        if draft.event_id not in payloads:
+            continue
+        try:
+            brief = materialize_brief(draft, payloads[draft.event_id])
+        except ValueError:
+            continue
         if brief.event_id in seen or brief.event_id not in payloads or not validate_brief(brief, payloads[brief.event_id]):
+            print(f'Brief rejected by publication/evidence checks | event={brief.event_id}')
             continue
         seen.add(brief.event_id)
         analysis = brief.analysis
@@ -147,7 +171,7 @@ Avoid rewriting any existing ballot: these events have no ready reviewed analysi
             background=analysis.background.narration,event_explanation=analysis.event_explanation.narration,
             evidence=brief.evidence,metric_candidates=[],numeric_series=[],open_questions=analysis.data_story.what_to_watch_next)
         save_analysis(db, research, analysis)
-    print(f'Additional sourced briefs ready={len(seen)}; no web search or extra daily batch.')
+    print(f'Additional sourced briefs returned={len(result.events) if result else 0} ready={len(seen)}; no web search or extra daily batch.')
 
 
 if __name__ == '__main__':
