@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from supabase import create_client
 from popularity import POLICY
+from source_images import rss_image
 
 
 def recent_news_cutoff(now=None):
@@ -86,20 +87,8 @@ def valid_image_url(value):
 
 
 def image_from_rss(entry):
-    """Use the cover already included in the RSS entry."""
-
-    for field in ("media_content", "media_thumbnail"):
-        for image in entry.get(field, []):
-            url = image.get("url")
-            if valid_image_url(url):
-                return url
-
-    for enclosure in entry.get("enclosures", []):
-        url = enclosure.get("href") or enclosure.get("url")
-        if str(enclosure.get("type", "")).startswith("image/") and valid_image_url(url):
-            return url
-
-    return None
+    """Select the largest suitable source original, rather than the first thumbnail."""
+    return rss_image(entry)
 
 
 def image_from_article(article_url):
