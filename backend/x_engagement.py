@@ -5,6 +5,7 @@ One page, at most ten posts, no user lookups, retries or pagination.
 """
 import math
 import os
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -32,9 +33,9 @@ def parse_engagement(payload, query, start, end, now):
         raise ValueError('Invalid X sample size')
     totals = dict(likes=0, reposts=0, replies=0, quotes=0)
     bins = [0, 0, 0, 0]
-    seen = set()
+    seen, posts = set(), []
     for row in rows:
-        if not isinstance(row, dict) or not str(row.get('id', '')).isdigit() or row['id'] in seen:
+        if not isinstance(row, dict) or not isinstance(row.get('id'), str) or not re.fullmatch(r'[1-9][0-9]{0,19}', row['id']) or row['id'] in seen:
             raise ValueError('Invalid or duplicate X post')
         seen.add(row['id'])
         at = parse_time(row.get('created_at'))
@@ -51,6 +52,7 @@ def parse_engagement(payload, query, start, end, now):
             totals[key] += value
         likes = values['likes']
         bins[3 if likes >= 100000 else 2 if likes >= 10000 else 1 if likes >= 1000 else 0] += 1
+        posts.append({'id': row['id'], 'created_at': at.isoformat(), **values})
     # Exclusive tiers: a 100k post receives its tier once, not three bonuses.
     viral = min(3.0, .25 * bins[1] + .75 * bins[2] + 1.5 * bins[3])
     points = viral + sum(weight * min(1, math.log1p(totals[key]) / math.log1p(full))
@@ -61,7 +63,8 @@ def parse_engagement(payload, query, start, end, now):
             'scope': 'sampled_matching_posts', 'sort_order': 'relevancy', 'sample_size': len(rows),
             'has_more': bool(payload.get('meta', {}).get('next_token')),
             **totals, 'likes_1k_plus': sum(bins[1:]), 'likes_10k_plus': sum(bins[2:]),
-            'likes_100k_plus': bins[3], 'like_buckets': bins, 'points': round(min(8, points), 4)}
+            'likes_100k_plus': bins[3], 'likes_1m_plus': sum(post['likes'] >= 1000000 for post in posts),
+            'posts': posts, 'like_buckets': bins, 'points': round(min(8, points), 4)}
 
 
 class XEngagement:

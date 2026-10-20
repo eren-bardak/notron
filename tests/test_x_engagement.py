@@ -20,6 +20,16 @@ def payload(likes):
         for i,n in enumerate(likes)],'meta':{'result_count':len(likes)}}
 
 class EngagementTests(unittest.TestCase):
+    def test_million_like_tier_retains_exact_public_post_links_without_extra_requests(self):
+        result=parse_engagement(payload([9999,10000,99999,100000,999999,1000000]),build_query(TERMS),START,NOW,NOW)
+        self.assertEqual(result['likes_1m_plus'],1)
+        self.assertEqual(result['likes_100k_plus'],3)
+        self.assertEqual(result['likes_10k_plus'],5)
+        self.assertEqual(result['posts'][-1]['id'],'6')
+        self.assertEqual(result['posts'][-1]['likes'],1000000)
+        self.assertLessEqual(result['points'],8)
+        self.assertNotIn('text',result['posts'][-1])
+
     def test_real_totals_and_thresholds_keep_exclusive_viral_buckets(self):
         result=parse_engagement(payload([999,1000,9999,10000,99999,100000]),build_query(TERMS),START,NOW,NOW)
         self.assertEqual(result['likes'],221997)
