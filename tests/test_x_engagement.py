@@ -21,6 +21,19 @@ def payload(likes):
         for i,n in enumerate(likes)],'meta':{'result_count':len(likes)}}
 
 class EngagementTests(unittest.TestCase):
+    def test_view_only_post_survives_broad_search_and_missing_views_stay_unknown(self):
+        data=payload([20,20])
+        data['data'][0]['public_metrics']['impression_count']=1000000
+        get=Mock(return_value=Mock(status_code=200,json=lambda:data))
+        with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run'}),patch('x_engagement.ledger'):
+            result=XEngagement(Mock(),NOW,get).measure(TERMS)
+        self.assertEqual([p['id'] for p in result['posts']],['1'])
+        self.assertEqual(result['posts'][0]['impressions'],1000000)
+        self.assertNotIn('min_likes:',get.call_args.kwargs['params']['query'])
+        missing=parse_engagement(payload([1000]),build_query(TERMS),START,NOW,NOW)
+        self.assertNotIn('impressions',missing['posts'][0])
+        data['data'][0]['public_metrics']['impression_count']=-1
+        with self.assertRaises(ValueError):parse_engagement(data,build_query(TERMS),START,NOW,NOW)
     def test_million_like_tier_retains_exact_public_post_links_without_extra_requests(self):
         result=parse_engagement(payload([9999,10000,99999,100000,999999,1000000]),build_query(TERMS),START,NOW,NOW)
         self.assertEqual(result['likes_1m_plus'],1)
@@ -171,7 +184,7 @@ class EngagementTests(unittest.TestCase):
         with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run','X_MAX_PAGES':'3'}),patch('x_engagement.ledger'):
             client=XEngagement(Mock(),NOW,get)
             result=client.measure(TERMS,old)
-            self.assertEqual(result['relevance_revision'],2)
+            self.assertEqual(result['relevance_revision'],3)
             self.assertEqual(client.measure(TERMS,result),result)
         self.assertEqual(get.call_count,1)
 
