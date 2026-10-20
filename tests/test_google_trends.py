@@ -1,3 +1,4 @@
+from country_scope_fixture import COUNTRY_DATA
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -93,7 +94,7 @@ class GoogleTrendsTests(unittest.TestCase):
 
     def test_scorer_persists_matched_bonus_once_and_preserves_base_without_feed(self):
         rows = {
-            'events': [{'id': 1, 'created_at': NOW.isoformat()}],
+            'events': [{'id': 1, 'data': COUNTRY_DATA, 'created_at': NOW.isoformat()}],
             'event_news': [{'event_id': 1, 'news_id': 1}],
             'news': [article()], 'sources': [{'name': 'A', 'source_group': 'left'}],
             'event_micro_comments': [], 'event_comments': [], 'event_answers': [], 'event_analyses': [],

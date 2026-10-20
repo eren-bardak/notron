@@ -1,3 +1,4 @@
+from country_scope_fixture import COUNTRY_DATA
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -114,7 +115,7 @@ class ScoreTests(unittest.TestCase):
     def test_publication_requires_threshold_and_research_for_both_feeds(self):
         def event(i,**changes):
             return {'id':i,'created_at':NOW.isoformat(),'popularity_updated_at':NOW.isoformat(),'popularity_score':30-i,
-                    'enough_data':True,'problem_supported':True,'source_count':2,'left_source_count':1,'right_source_count':1,
+                    'enough_data':True,'data':COUNTRY_DATA,'problem_supported':True,'source_count':2,'left_source_count':1,'right_source_count':1,
                     'numeric_data':[{'ordered':True,'source_url':'https://example.org/data','points':[{'label':'2024','value':1},{'label':'2025','value':2}]}],**changes}
         rows=[event(i) for i in range(1,6)]+[event(6,popularity_score=4.99),event(7,numeric_data=[])]
         analysis={**QUALITY,**QUESTIONS,'editorial_review':{'revision':2,'question_intent':'event_implication','event_specific':True,'matches_displayed_evidence':True,'evidence_relevant':True,'not_factual_recall':True},'charts':[{'chart_type':'line','source_urls':['https://example.org/data'],'points':[{'label':'2024','value':1},{'label':'2025','value':2}]}]}

@@ -16,6 +16,7 @@ from event_catalog import balanced_articles, category_id
 from catalog_sampling import sample_articles, article_category, category_batches
 from collections import defaultdict
 from popularity import normalize
+from country_scope import CountryScope, country_eligible
 
 NEWS_WINDOW_HOURS = POLICY["event_window_hours"]
 
@@ -43,6 +44,7 @@ HEADERS = {
 class Event(BaseModel):
     title: str
     summary: str
+    country_scope: CountryScope
     category: Literal["politics", "finance", "sports", "magazine", "technology", "entertainment", "general"] = "general"
     x_query_terms: list[str] = Field(default_factory=list, max_length=3)
     newsworthy: bool = False
@@ -549,7 +551,24 @@ def main():
         search_options = {} if ECONOMY_MODE else {"tools": [{"type": "web_search"}], "tool_choice": "required"}
         prompt = f"""
     {search_instruction}
-    Group Turkish news only when they describe the same concrete occurrence.
+    Group news about Türkiye only when they describe the same concrete occurrence.
+    COUNTRY SCOPE IS REQUIRED IN EVERY CATEGORY, INCLUDING THE OVERALL AGENDA.
+    A Turkish publisher, Turkish language, high coverage or viral X engagement
+    NEVER makes a foreign-only story a Türkiye story. Include only events taking
+    place in Türkiye or with a specific, explicit connection to Turkish people,
+    teams, institutions, markets or a documented direct effect on Türkiye.
+    Exclude general global-interest stories and speculative spillover. For example,
+    SpaceX shares promised to US children, a French minister's resignation or an
+    attack on an Indian actor have no Türkiye connection by themselves.
+    A Turkish national team's match abroad or a foreign decision explicitly
+    affecting Türkiye is relevant. Do not add an invented Türkiye angle.
+    country_scope: revision=1, country=TR, relationship=domestic or direct_impact,
+    a 30+ character reason explaining the specific Türkiye connection, and
+    evidence from at least TWO DISTINCT PUBLISHERS. Each evidence item must use
+    an article_id from this cluster and an exact 12–280 character quote from
+    its supplied title/description establishing that connection. Do not quote
+    publisher names, article language or generic interest as country evidence.
+    Omit a cluster when its Türkiye connection cannot be established.
     Welcome positive, neutral and negative developments equally, including
     scientific breakthroughs, public improvements, culture, celebrations and
     sports achievements. A problem or adverse angle is never required.
@@ -668,7 +687,8 @@ def main():
         }
 
         invalid = (
-            not new_news_ids.intersection(ids)
+            not country_eligible({'data': {'country_scope': event.country_scope.model_dump()}}, articles=articles)
+            or not new_news_ids.intersection(ids)
             or len(sources) < MIN_SOURCES
             or not balanced_articles(articles, source_leanings)
             or event.confidence < MIN_CONFIDENCE
@@ -719,6 +739,7 @@ def main():
             old_data = (rows[0].get('data') or {}) if rows else {}
         old_data.pop('publication_excluded_reason', None)
         event_data['data'] = {**old_data, 'catalog_version': '1.1',
+                              'country_scope': event.country_scope.model_dump(),
                               'cluster_confidence': event.confidence,
                               'newsworthy': event.newsworthy, 'news_value_reason': event.news_value_reason,
                               'x_query_terms': event.x_query_terms}

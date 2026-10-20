@@ -12,6 +12,7 @@ from x_signals import XCounts, build_query, signal_points
 from x_engagement import XEngagement, combined_x_points
 from collections import defaultdict, deque
 from editorial_quality import current_editorial, publication_quality
+from country_scope import country_eligible
 
 
 def main():
@@ -20,7 +21,7 @@ def main():
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=POLICY['event_window_hours'])
     events = read_all(db, 'events', 'id,title,category,data,created_at,problem_supported')
-    events = [e for e in events if (created := parse_time(e.get('created_at'))) and cutoff <= created <= now]
+    events = [e for e in events if country_eligible(e) and (created := parse_time(e.get('created_at'))) and cutoff <= created <= now]
     if not events:
         print('No recent events. Scoring skipped.')
         return
