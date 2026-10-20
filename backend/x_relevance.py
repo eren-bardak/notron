@@ -48,12 +48,14 @@ def apply_review(event, signal, decisions, now, reviewer='gpt-6-luna'):
             if len(quote) < 8 or quote not in post.get('text', ''):
                 raise ValueError('Acceptance requires an exact supporting quote')
             accepted.append(post)
-    query = build_query(event.get('terms') or (event.get('data') or {}).get('x_query_terms'))
+    terms = event.get('terms') or (event.get('data') or {}).get('x_query_terms')
+    query = next((q for broad in (False, True) if (q := build_query(terms, broad=broad)) and signal.get('query_hash') == query_hash(q)), None)
     if not query or signal.get('query_hash') != query_hash(query):
         raise ValueError('Review query does not belong to this event')
     rows = [{'id': p['id'], 'text': p.get('text', ''), 'created_at': p['created_at'],
              'public_metrics': {'like_count': p['likes'], 'retweet_count': p['reposts'],
-                                'reply_count': p['replies'], 'quote_count': p['quotes']}} for p in accepted]
+                                'reply_count': p['replies'], 'quote_count': p['quotes'],
+                                **({'impression_count':p['impressions']} if p.get('impressions') is not None else {})}} for p in accepted]
     parsed = parse_engagement({'data': rows, 'meta': {'result_count': len(rows), 'next_token': signal.get('has_more')}},
                               query, parse_time(signal['window_start']), parse_time(signal['window_end']),
                               parse_time(signal['measured_at']), limit=MAX_SAMPLE)

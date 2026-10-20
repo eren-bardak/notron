@@ -45,12 +45,12 @@ def query_groups(terms):
     return groups if len(groups) >= 2 else None
 
 
-def build_query(terms):
+def build_query(terms, broad=False):
     groups = query_groups(terms)
     if not groups:
         return None
     parts = ['"'+group[0]+'"' if len(group)==1 else '('+' OR '.join('"'+term+'"' for term in group)+')' for group in groups]
-    query = ' '.join(parts) + ' (min_likes:1000 OR min_replies:101) lang:tr -is:retweet'
+    query = ' '.join(parts) + ('' if broad else ' (min_likes:1000 OR min_replies:101)') + ' lang:tr -is:retweet'
     return query if len(query) <= 512 else None
 
 

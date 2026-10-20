@@ -11,6 +11,7 @@ from event_catalog import balanced_event, category_id
 from x_engagement import XEngagement, combined_x_points
 from x_relevance import XRelevance
 from x_authors import attach_authors
+from youtube_activity import YouTubeFeeds
 from collections import defaultdict, deque
 from editorial_quality import current_editorial, publication_quality
 from country_scope import country_eligible
@@ -53,6 +54,7 @@ def main():
     results = []
     x_engagement = XEngagement(db, now)
     x_relevance = XRelevance(db, now)
+    youtube = YouTubeFeeds(now)
     paid_x = os.getenv('NOTRON_X_PHASE') != 'deferred'
     for event in events:
         result = score_event(event, links, news_by_id, sides, micro, comments, answers, analysis_by_id.get(int(event['id'])), now)
@@ -91,6 +93,10 @@ def main():
                 if paid_x:
                     accepted = attach_authors(accepted, metadata.get('x_engagement_signal'))
                 metadata = {**metadata, 'x_engagement_signal':accepted}
+        if balanced and worthwhile and reviewed:
+            videos = youtube.activity(event, metadata.get('youtube_activity'))
+            if videos is not None:
+                metadata = {**metadata, 'youtube_activity': videos}
         # The web feed replaces this decayed snapshot contribution with current
         # approved participation and the credit ledger, without counting twice.
         x_points = combined_x_points(metadata.get('x_signal'), metadata.get('x_engagement_signal'), terms, now) if balanced and worthwhile else 0

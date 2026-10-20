@@ -31,7 +31,8 @@ def post_text(row):
 def qualifying_post(row, terms):
     metrics = row.get('public_metrics') or {}
     return (related_post(post_text(row), terms)
-            and (metrics.get('like_count', 0) >= 1000 or metrics.get('reply_count', 0) > 100))
+            and (metrics.get('like_count', 0) >= 1000 or metrics.get('reply_count', 0) > 100
+                 or (type(metrics.get('impression_count')) is int and metrics['impression_count'] >= 10000)))
 
 
 def parse_engagement(payload, query, start, end, now, limit=POST_LIMIT):
@@ -61,12 +62,16 @@ def parse_engagement(payload, query, start, end, now, limit=POST_LIMIT):
                   'replies': metrics.get('reply_count'), 'quotes': metrics.get('quote_count')}
         if any(type(value) is not int or not 0 <= value <= 2**63-1 for value in values.values()):
             raise ValueError('Missing or invalid X public metrics')
+        impressions = metrics.get('impression_count')
+        if impressions is not None and (type(impressions) is not int or not 0 <= impressions <= 2**53-1):
+            raise ValueError('Invalid X impressions')
         for key, value in values.items():
             totals[key] += value
         likes = values['likes']
         bins[3 if likes >= 100000 else 2 if likes >= 10000 else 1 if likes >= 1000 else 0] += 1
         text = post_text(row)
         posts.append({'id': row['id'], 'created_at': at.isoformat(), **values,
+                      **({'impressions': impressions} if impressions is not None else {}),
                       **({'text': text[:2000]} if isinstance(text, str) else {})})
     # Exclusive tiers: a 100k post receives its tier once, not three bonuses.
     viral = min(3.0, .25 * bins[1] + .75 * bins[2] + 1.5 * bins[3])
@@ -94,13 +99,13 @@ class XEngagement:
         self.attempts, self.disabled = 0, False
 
     def measure(self, terms, previous=None):
-        query = build_query(terms)
+        query = build_query(terms, broad=True)
         if not query:
             return None
         at = parse_time(previous.get('measured_at')) if isinstance(previous, dict) else None
         if (at and timedelta(0) <= self.now-at < timedelta(hours=6)
                 and previous.get('query_hash') == query_hash(query) and previous.get('kind') == 'engagement_v1'
-                and previous.get('status') == 'measured' and previous.get('relevance_revision') == 2
+                and previous.get('status') == 'measured' and previous.get('relevance_revision') == 3
                 and (previous.get('search_complete') is True or previous.get('requested_pages') == self.max_pages)):
             return previous
         if not self.token or self.disabled or self.attempts >= MAX_QUERIES or not os.getenv('NOTRON_RUN_ID'):
@@ -165,11 +170,11 @@ class XEngagement:
         more = bool(next_token) or reason is not None
         result = parse_engagement({'data': kept, 'meta': {'result_count': len(kept), 'next_token': more}},
                                   query, start, end, self.now, limit=MAX_SAMPLE)
-        result.update(relevance_revision=2, fetched_sample_size=fetched,
+        result.update(relevance_revision=3, fetched_sample_size=fetched,
                       rejected_posts=len(rows)-len(kept), duplicate_posts=fetched-len(rows),
                       pages_fetched=pages, requested_pages=self.max_pages,
                       search_complete=not more, stop_reason=reason or ('page_limit' if more else 'exhausted'))
-        result['engagement_filter'] = {'min_likes': 1000, 'min_replies': 101}
+        result['engagement_filter'] = {'min_likes': 1000, 'min_replies': 101, 'min_impressions': 10000, 'operator': 'or'}
         return result
 
 
@@ -182,4 +187,4 @@ def combined_x_points(counts, engagement, terms, now):
     if (review.get('revision') != 1 or engagement.get('score_revision') != 2
             or review.get('accepted_ids') != [post['id'] for post in posts]):
         return 0
-    return min(8, signal_points(engagement, build_query(terms), now))
+    return min(8, max(signal_points(engagement, build_query(terms, broad=broad), now) for broad in (False, True)))
