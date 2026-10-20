@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-from x_signals import XCounts, build_query, parse_counts, signal_points, MAX_QUERIES
+from x_signals import XCounts, build_query, parse_counts, signal_points, related_post, MAX_QUERIES
 from daily_budget import BudgetError
 from event_catalog import balanced_articles, balanced_event, category_id, CATEGORIES
 
@@ -21,7 +21,7 @@ def response(count=3):
 
 class SignalsTests(unittest.TestCase):
     def test_only_concrete_safe_conjunctive_queries(self):
-        self.assertEqual(build_query(TERMS), '"Pendik" "dere taskini" lang:tr -is:retweet')
+        self.assertEqual(build_query(TERMS), '"Pendik" "dere taskini" (min_likes:1000 OR min_replies:101) lang:tr -is:retweet')
         for terms in (None, [], ['Pendik'], ['haber','Turkiye'], ['Pendik','from:example'], ['Pendik','" OR test'], ['Pendik','Pendik']):
             self.assertIsNone(build_query(terms))
 
@@ -39,6 +39,15 @@ class SignalsTests(unittest.TestCase):
         self.assertAlmostEqual(signal_points(signal,build_query(TERMS),NOW+timedelta(hours=6)),signal['points']/2)
         self.assertEqual(signal_points(signal,build_query(['Other','occurrence']),NOW),0)
         self.assertEqual(signal_points(signal,build_query(TERMS),NOW+timedelta(hours=24)),0)
+
+    def test_event_alternatives_match_different_wording_but_not_hashtag_stuffing(self):
+        terms=['Milas',['gözaltı','operasyon','Fevzi Topuz']]
+        self.assertEqual(build_query(terms),'"Milas" ("gözaltı" OR "operasyon" OR "Fevzi Topuz") (min_likes:1000 OR min_replies:101) lang:tr -is:retweet')
+        self.assertTrue(related_post('Milas Belediyesine operasyon düzenlendi, başkan gözaltına alındı.',terms))
+        self.assertTrue(related_post('Fevzi Topuz hakkında Milas açıklaması geldi.',terms))
+        self.assertFalse(related_post('Kuzey Kore haberi https://t.co/example #Milas #Fevzi Topuz',terms))
+        self.assertFalse(related_post('Başka ilçede operasyon düzenlendi.',terms))
+        self.assertIsNone(build_query(['Milas',['from:someone','operasyon']]))
 
     def test_missing_partial_or_invalid_counts_are_not_zero(self):
         for payload in ({}, {'errors':[{}]}, {'data':[]}, {**response(),'meta':{'total_tweet_count':0}},

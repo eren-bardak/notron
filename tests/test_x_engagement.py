@@ -16,6 +16,7 @@ TERMS=['Orionid','meteor']
 
 def payload(likes):
     return {'data':[{'id':str(i+1),'created_at':(NOW-timedelta(hours=1)).isoformat(),
+        'text':'Orionid meteor yağmuru bu gece gözlenebilecek.',
         'public_metrics':{'like_count':n,'retweet_count':10,'reply_count':5,'quote_count':2}}
         for i,n in enumerate(likes)],'meta':{'result_count':len(likes)}}
 
@@ -28,7 +29,31 @@ class EngagementTests(unittest.TestCase):
         self.assertEqual(result['posts'][-1]['id'],'6')
         self.assertEqual(result['posts'][-1]['likes'],1000000)
         self.assertLessEqual(result['points'],8)
-        self.assertNotIn('text',result['posts'][-1])
+        self.assertIn('Orionid',result['posts'][-1]['text'])
+
+    def test_unrelated_hashtag_spam_is_billed_but_never_displayed_or_scored(self):
+        data=payload([1000000,1000])
+        data['data'][0]['text']='Başka bir haber https://t.co/example #Orionid #meteor'
+        get=Mock(return_value=Mock(status_code=200,json=lambda:data))
+        with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run'}),patch('x_engagement.ledger') as budget:
+            result=XEngagement(Mock(),NOW,get).measure(TERMS)
+        self.assertEqual(result['sample_size'],1)
+        self.assertEqual(result['fetched_sample_size'],2)
+        self.assertEqual(result['rejected_posts'],1)
+        self.assertEqual(result['likes'],1000)
+        self.assertEqual(result['likes_1m_plus'],0)
+        self.assertEqual(budget.call_args_list[1].kwargs['p_amount'],10000)
+
+    def test_only_1000_likes_or_more_than_100_replies_pass(self):
+        data=payload([999,1000,999])
+        data['data'][0]['public_metrics']['reply_count']=100
+        data['data'][2]['public_metrics']['reply_count']=101
+        get=Mock(return_value=Mock(status_code=200,json=lambda:data))
+        with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run'}),patch('x_engagement.ledger') as budget:
+            result=XEngagement(Mock(),NOW,get).measure(TERMS)
+        self.assertEqual([post['id'] for post in result['posts']],['2','3'])
+        self.assertEqual(result['likes_1k_plus'],1)
+        self.assertEqual(budget.call_args_list[1].kwargs['p_amount'],15000)
 
     def test_real_totals_and_thresholds_keep_exclusive_viral_buckets(self):
         result=parse_engagement(payload([999,1000,9999,10000,99999,100000]),build_query(TERMS),START,NOW,NOW)
