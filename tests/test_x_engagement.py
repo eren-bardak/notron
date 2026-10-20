@@ -67,7 +67,7 @@ class EngagementTests(unittest.TestCase):
         self.assertEqual(result['likes_100k_plus'],1)
         self.assertEqual(result['scope'],'sampled_matching_posts')
         self.assertLessEqual(result['points'],8)
-        self.assertAlmostEqual(combined_x_points(None,result,TERMS,NOW+timedelta(hours=6)),result['points']/2)
+        self.assertEqual(combined_x_points(None,result,TERMS,NOW+timedelta(hours=6)),0)  # relevance review is required before ranking
 
     def test_missing_metrics_duplicates_and_unrelated_queries_do_not_become_zero(self):
         bad=payload([10]);bad['data'][0]['public_metrics'].pop('reply_count')

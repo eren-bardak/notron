@@ -1,9 +1,9 @@
 """Prefer large publisher-supplied originals without downloads or paid requests."""
 import math
 import re
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 
-BAD_IMAGE = re.compile(r'logo|placeholder|favicon|avatar|sprite', re.I)
+BAD_IMAGE = re.compile(r'logo|placeholder|favicon|avatar|sprite|son-dakikajpg|son_dakika_default', re.I)
 
 
 def image_candidate(image):
@@ -11,6 +11,10 @@ def image_candidate(image):
     if not isinstance(url, str):
         return None
     parsed = urlsplit(url)
+    if (parsed.hostname or '').endswith('.tmgrup.com.tr'):
+        original = parse_qs(parsed.query).get('u', [None])[0]
+        if original and (urlsplit(original).hostname or '').endswith('.tmgrup.com.tr'):
+            url, parsed = original, urlsplit(original)
     if parsed.scheme not in {'http', 'https'} or not parsed.hostname or BAD_IMAGE.search(parsed.path):
         return None
     def dimension(value):
@@ -20,7 +24,10 @@ def image_candidate(image):
         except (ValueError, TypeError):
             return None
     width, height = dimension(image.get('width')), dimension(image.get('height'))
-    if (width and width < 800) or (height and height < 450):
+    hint = re.search(r'\b(\d{3,4})x(\d{3,4})\b', parsed.path)
+    if hint:
+        width, height = width or int(hint[1]), height or int(hint[2])
+    if (width and width < 1280) or (height and height < 720):
         return None
     if width and height and not 1.15 <= width/height <= 2.5:
         return None

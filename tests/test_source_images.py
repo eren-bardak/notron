@@ -24,5 +24,14 @@ class SourceImageTests(unittest.TestCase):
         self.assertEqual(rss_image({'enclosures': [{'href': 'https://example.org/photo.jpg', 'type': 'image/jpeg'}]}), 'https://example.org/photo.jpg')
         self.assertIsNone(rss_image({'media_content': [{'url': 'javascript:alert(1)'}]}))
 
+    def test_url_sizes_prefer_hd_and_reject_generic_breaking_news_art(self):
+        entry={'media_content': [
+            {'url':'https://example.org/son-dakikajpg-banner.jpg'},
+            {'url':'https://example.org/900x506.jpg'},
+            {'url':'https://example.org/unknown.jpg'},
+            {'url':'https://example.org/1920x1080.jpg'}]}
+        self.assertEqual(rss_image(entry),'https://example.org/1920x1080.jpg')
+        self.assertEqual(rss_image({'media_content':[{'url':'https://iaahbr.tmgrup.com.tr/resize?u=https%3A%2F%2Fiahbr.tmgrup.com.tr%2Foriginal.jpg'}]}),'https://iahbr.tmgrup.com.tr/original.jpg')
+
 
 if __name__ == '__main__': unittest.main()

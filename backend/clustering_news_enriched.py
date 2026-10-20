@@ -17,6 +17,7 @@ from catalog_sampling import sample_articles, article_category, category_batches
 from collections import defaultdict
 from popularity import normalize
 from country_scope import CountryScope, country_eligible
+from source_images import preferred_image
 
 NEWS_WINDOW_HOURS = POLICY["event_window_hours"]
 
@@ -131,12 +132,11 @@ def image_from_article(article_url):
 
 
 def choose_cover_image(db, articles):
-    """Choose any real cover belonging to the event's linked news rows."""
+    """Prefer the largest published cover across the event's linked sources."""
 
-    for article in articles:
-        image = article.get("cover_image_url")
-        if valid_image_url(image):
-            return image
+    best = preferred_image([{'url': article.get('cover_image_url')} for article in articles])
+    if best:
+        return best
 
     for article in articles:
         article_url = article.get("url")
