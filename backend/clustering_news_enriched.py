@@ -46,7 +46,7 @@ class Event(BaseModel):
     summary: str
     country_scope: CountryScope
     category: Literal["politics", "finance", "sports", "magazine", "technology", "entertainment", "general"] = "general"
-    x_query_terms: list[str] = Field(default_factory=list, max_length=3)
+    x_query_terms: list[str | list[str]] = Field(default_factory=list, max_length=3)
     newsworthy: bool = False
     news_value_reason: str = ""
     problem_supported: bool
@@ -586,11 +586,16 @@ def main():
     alone are general, not politics.
     Finance includes economy, markets, employment and business. Magazine is
     celebrity/personal-life reporting; entertainment is film/music/arts/gaming.
-    x_query_terms: 2 or 3 short, specific Turkish search phrases jointly identifying
-    this occurrence (person/place + concrete action/object). No operators,
+    x_query_terms: 2 or 3 short Turkish anchor groups identifying this exact
+    occurrence, not the headline wording. Use a person/place/organization anchor
+    AND a development/context anchor. A group may be a string or up to three
+    alternative strings for synonyms, names or spelling variants. Groups are
+    ANDed; alternatives within a group are ORed. No operators,
     quotes, URLs, hashtags or generic terms like haber, Türkiye, son dakika.
-    Each phrase must be short (one to three words), so real posts can match both:
-    examples ["Çukurova Belediyesi", "gözaltı"] or ["Orionid", "meteor"].
+    Each alternative must be short (one to three words), so differently worded
+    posts about this event match. Examples ["Milas",["gözaltı","operasyon","Fevzi Topuz"]]
+    or ["Nutuk",["Külliyatı","dijital","sekiz dil"]]. Do not require multiple
+    people's full names in the same post unless all names are essential.
 
     newsworthy: true ONLY for a substantive new development: public impact,
     institutional decisions, major competitive results, cultural significance,

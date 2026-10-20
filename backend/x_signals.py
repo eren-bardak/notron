@@ -20,24 +20,52 @@ MAX_POINTS = 8
 GENERIC = {'haber', 'son dakika', 'turkiye', 'gundem', 'aciklama', 'gelisme', 'bugun'}
 
 
+def query_groups(terms):
+    """AND event anchors, OR spelling/context alternatives within each group."""
+    if not isinstance(terms, list) or not 2 <= len(terms) <= 3:
+        return None
+    groups = []
+    for group in terms:
+        choices = group if isinstance(group, list) else [group]
+        if not 1 <= len(choices) <= 3:
+            return None
+        safe = []
+        for term in choices:
+            if not isinstance(term, str):
+                return None
+            term = ' '.join(term.split())
+            if not 3 <= len(term) <= 65 or normalize(term) in GENERIC:
+                return None
+            if any(not (char.isalnum() or char in ' -') for char in term):
+                return None
+            if normalize(term) not in {normalize(item) for item in safe}:
+                safe.append(term)
+        if sorted(map(normalize, safe)) not in [sorted(map(normalize, existing)) for existing in groups]:
+            groups.append(safe)
+    return groups if len(groups) >= 2 else None
+
+
 def build_query(terms):
-    if not isinstance(terms, list):
+    groups = query_groups(terms)
+    if not groups:
         return None
-    safe = []
-    for term in terms[:3]:
-        if not isinstance(term, str):
-            return None
-        term = ' '.join(term.split())
-        if not 3 <= len(term) <= 65 or normalize(term) in GENERIC:
-            return None
-        # Model output is data, not X query syntax. No operators, URLs or quotes.
-        if any(not (char.isalnum() or char in ' -') for char in term):
-            return None
-        if normalize(term) not in {normalize(item) for item in safe}:
-            safe.append(term)
-    if len(safe) < 2:
-        return None
-    return ' '.join('"' + term + '"' for term in safe) + ' lang:tr -is:retweet'
+    parts = ['"'+group[0]+'"' if len(group)==1 else '('+' OR '.join('"'+term+'"' for term in group)+')' for group in groups]
+    query = ' '.join(parts) + ' (min_likes:1000 OR min_replies:101) lang:tr -is:retweet'
+    return query if len(query) <= 512 else None
+
+
+def related_post(text, terms):
+    """Event anchors must occur in the body, not an unrelated hashtag tail."""
+    groups = query_groups(terms)
+    if not groups or not isinstance(text, str):
+        return False
+    body = re.split(r'https?://', text, maxsplit=1)[0]
+    body = re.split(r'\n\s*\n\s*#', body, maxsplit=1)[0]
+    tokens = re.findall(r'[^\W_]+', normalize(body))
+    def matches(phrase):
+        words = re.findall(r'[^\W_]+', normalize(phrase))
+        return all(any(token == word or len(word) >= 4 and token.startswith(word) for token in tokens) for word in words)
+    return all(any(matches(phrase) for phrase in group) for group in groups)
 
 
 def query_hash(query):

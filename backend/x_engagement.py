@@ -13,12 +13,18 @@ import requests
 
 from daily_budget import BudgetError, ledger
 from popularity import decay, parse_time
-from x_signals import build_query, query_hash, signal_points
+from x_signals import build_query, query_hash, signal_points, related_post
 
 SEARCH_URL = 'https://api.x.com/2/tweets/search/recent'
 POST_LIMIT = 10
 POST_PRICE = 5000  # $0.005/post, checked against official X pricing 2026-10-19.
 MAX_QUERIES = 12
+
+
+def qualifying_post(row, terms):
+    metrics = row.get('public_metrics') or {}
+    return (related_post(row.get('text'), terms)
+            and (metrics.get('like_count', 0) >= 1000 or metrics.get('reply_count', 0) > 100))
 
 
 def parse_engagement(payload, query, start, end, now):
@@ -52,7 +58,9 @@ def parse_engagement(payload, query, start, end, now):
             totals[key] += value
         likes = values['likes']
         bins[3 if likes >= 100000 else 2 if likes >= 10000 else 1 if likes >= 1000 else 0] += 1
-        posts.append({'id': row['id'], 'created_at': at.isoformat(), **values})
+        text = row.get('text')
+        posts.append({'id': row['id'], 'created_at': at.isoformat(), **values,
+                      **({'text': text[:2000]} if isinstance(text, str) else {})})
     # Exclusive tiers: a 100k post receives its tier once, not three bonuses.
     viral = min(3.0, .25 * bins[1] + .75 * bins[2] + 1.5 * bins[3])
     points = viral + sum(weight * min(1, math.log1p(totals[key]) / math.log1p(full))
@@ -81,7 +89,7 @@ class XEngagement:
         at = parse_time(previous.get('measured_at')) if isinstance(previous, dict) else None
         if (at and timedelta(0) <= self.now-at < timedelta(hours=6)
                 and previous.get('query_hash') == query_hash(query) and previous.get('kind') == 'engagement_v1'
-                and previous.get('status') == 'measured'):
+                and previous.get('status') == 'measured' and previous.get('relevance_revision') == 1):
             return previous
         if not self.token or self.disabled or self.attempts >= MAX_QUERIES or not os.getenv('NOTRON_RUN_ID'):
             return None
@@ -104,8 +112,16 @@ class XEngagement:
             response.raise_for_status()
             if response.status_code != 200:
                 raise ValueError('Unexpected X response')
-            result = parse_engagement(response.json(), query, start, end, self.now)
-            ledger(self.db, 'settle', p_request_id=request_id, p_amount=result['sample_size'] * POST_PRICE)
+            payload = response.json()
+            # Validate every billed result before filtering, and settle on all
+            # returned posts, including rejected spam, never only retained ones.
+            raw = parse_engagement(payload, query, start, end, self.now)
+            kept = [row for row in payload.get('data', []) if qualifying_post(row, terms)]
+            filtered = {**payload, 'data': kept, 'meta': {**payload['meta'], 'result_count': len(kept)}}
+            result = parse_engagement(filtered, query, start, end, self.now)
+            result.update(relevance_revision=1,fetched_sample_size=raw['sample_size'],rejected_posts=raw['sample_size']-len(kept))
+            result['engagement_filter'] = {'min_likes': 1000, 'min_replies': 101}
+            ledger(self.db, 'settle', p_request_id=request_id, p_amount=raw['sample_size'] * POST_PRICE)
             return result
         except (requests.RequestException, ValueError, TypeError, BudgetError):
             print('X engagement unavailable; no fabricated likes, replies or reposts.')
@@ -116,6 +132,9 @@ def combined_x_points(counts, engagement, terms, now):
     query = build_query(terms)
     volume = signal_points(counts, query, now)
     activity = signal_points(engagement, query, now)
+    # A contaminated search sample cannot validate the unfiltered volume bonus.
+    if isinstance(engagement, dict) and engagement.get('relevance_revision') == 1 and engagement.get('rejected_posts', 0):
+        return min(8, activity)
     def measured(signal):
         if not isinstance(signal, dict) or not query:
             return False
