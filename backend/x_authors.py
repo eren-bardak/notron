@@ -27,7 +27,7 @@ def attach_authors(signal, previous=None, get=None):
     cached = {p['id']: p.get('author_name') for p in (previous or {}).get('posts', []) if p.get('author_name')}
     def lookup(post):
         name = post.get('author_name') or cached.get(post['id'])
-        if not name and (post['likes'] >= 1000 or post.get('impressions', 0) >= 10000):
+        if not name and (post['likes'] >= 100 or post.get('impressions', 0) >= 10000):
             try:
                 response = get('https://publish.x.com/oembed', params={'url': 'https://x.com/i/status/'+post['id'],
                     'omit_script': 'true', 'dnt': 'true'}, timeout=8, allow_redirects=False)

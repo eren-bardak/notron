@@ -57,15 +57,15 @@ class EngagementTests(unittest.TestCase):
         self.assertEqual(result['likes_1m_plus'],0)
         self.assertEqual(budget.call_args_list[1].kwargs['p_amount'],10000)
 
-    def test_only_1000_likes_or_more_than_100_replies_pass(self):
-        data=payload([999,1000,999])
+    def test_100_likes_is_inclusive_and_101_replies_still_qualifies(self):
+        data=payload([99,100,99])
         data['data'][0]['public_metrics']['reply_count']=100
         data['data'][2]['public_metrics']['reply_count']=101
         get=Mock(return_value=Mock(status_code=200,json=lambda:data))
         with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run'}),patch('x_engagement.ledger') as budget:
             result=XEngagement(Mock(),NOW,get).measure(TERMS)
         self.assertEqual([post['id'] for post in result['posts']],['2','3'])
-        self.assertEqual(result['likes_1k_plus'],1)
+        self.assertEqual(result['likes_1k_plus'],0)
         self.assertEqual(budget.call_args_list[1].kwargs['p_amount'],15000)
 
     def test_real_totals_and_thresholds_keep_exclusive_viral_buckets(self):
@@ -184,7 +184,7 @@ class EngagementTests(unittest.TestCase):
         with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run','X_MAX_PAGES':'3'}),patch('x_engagement.ledger'):
             client=XEngagement(Mock(),NOW,get)
             result=client.measure(TERMS,old)
-            self.assertEqual(result['relevance_revision'],3)
+            self.assertEqual(result['relevance_revision'],4)
             self.assertEqual(client.measure(TERMS,result),result)
         self.assertEqual(get.call_count,1)
 

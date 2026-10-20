@@ -31,7 +31,7 @@ def post_text(row):
 def qualifying_post(row, terms):
     metrics = row.get('public_metrics') or {}
     return (related_post(post_text(row), terms)
-            and (metrics.get('like_count', 0) >= 1000 or metrics.get('reply_count', 0) > 100
+            and (metrics.get('like_count', 0) >= 100 or metrics.get('reply_count', 0) > 100
                  or (type(metrics.get('impression_count')) is int and metrics['impression_count'] >= 10000)))
 
 
@@ -105,7 +105,7 @@ class XEngagement:
         at = parse_time(previous.get('measured_at')) if isinstance(previous, dict) else None
         if (at and timedelta(0) <= self.now-at < timedelta(hours=6)
                 and previous.get('query_hash') == query_hash(query) and previous.get('kind') == 'engagement_v1'
-                and previous.get('status') == 'measured' and previous.get('relevance_revision') == 3
+                and previous.get('status') == 'measured' and previous.get('relevance_revision') == 4
                 and (previous.get('search_complete') is True or previous.get('requested_pages') == self.max_pages)):
             return previous
         if not self.token or self.disabled or self.attempts >= MAX_QUERIES or not os.getenv('NOTRON_RUN_ID'):
@@ -170,11 +170,11 @@ class XEngagement:
         more = bool(next_token) or reason is not None
         result = parse_engagement({'data': kept, 'meta': {'result_count': len(kept), 'next_token': more}},
                                   query, start, end, self.now, limit=MAX_SAMPLE)
-        result.update(relevance_revision=3, fetched_sample_size=fetched,
+        result.update(relevance_revision=4, fetched_sample_size=fetched,
                       rejected_posts=len(rows)-len(kept), duplicate_posts=fetched-len(rows),
                       pages_fetched=pages, requested_pages=self.max_pages,
                       search_complete=not more, stop_reason=reason or ('page_limit' if more else 'exhausted'))
-        result['engagement_filter'] = {'min_likes': 1000, 'min_replies': 101, 'min_impressions': 10000, 'operator': 'or'}
+        result['engagement_filter'] = {'min_likes': 100, 'min_replies': 101, 'min_impressions': 10000, 'operator': 'or'}
         return result
 
 
