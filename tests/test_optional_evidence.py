@@ -1,3 +1,4 @@
+from country_scope_fixture import COUNTRY_DATA
 import copy
 import sys
 from pathlib import Path
@@ -23,7 +24,7 @@ class OptionalEvidenceTests(unittest.TestCase):
     def test_sourced_story_can_publish_without_measurements(self):
         self.assertFalse(valid_numeric_data([]))
         self.assertTrue(valid_analysis_timeline(self.analysis, [], self.now))
-        event = {"id": 1, "created_at": self.now.isoformat(), "source_count": 2, "left_source_count": 1, "right_source_count": 1, "enough_data": True, "numeric_data": [], "popularity_score": 10, "popularity_updated_at": self.now.isoformat()}
+        event = {"id": 1, "created_at": self.now.isoformat(), "source_count": 2, "left_source_count": 1, "right_source_count": 1, "enough_data": True, "data": COUNTRY_DATA, "numeric_data": [], "popularity_score": 10, "popularity_updated_at": self.now.isoformat()}
         rows = [{"event_id": 1, "status": "ready", "analysis": self.analysis}]
         self.assertEqual(ready_event_ids([event], rows, self.now), [1])
         event["source_count"] = 1

@@ -20,6 +20,7 @@ from popularity import POLICY, current_score, event_thresholds
 from editorial_quality import RESEARCH_REVISION, current_editorial, publication_quality
 from daily_budget import budget_client, coverage_rank, ledger, BudgetError
 from event_catalog import balanced_event
+from country_scope import country_eligible
 
 
 load_dotenv()
@@ -63,7 +64,7 @@ def main() -> None:
     )
 
     now = datetime.now(timezone.utc)
-    eligible = [event for event in events if balanced_event(event) and (event.get('data') or {}).get('newsworthy') is not False and not (event.get('data') or {}).get('publication_excluded_reason')]
+    eligible = [event for event in events if country_eligible(event) and balanced_event(event) and (event.get('data') or {}).get('newsworthy') is not False and not (event.get('data') or {}).get('publication_excluded_reason')]
     thresholds = event_thresholds(eligible, now)
     eligible = [event for event in eligible if current_score(event, now) >= thresholds[int(event['id'])]]
     ids = [int(event["id"]) for event in eligible]

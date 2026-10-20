@@ -20,6 +20,7 @@ from deep_dive.models import EventAnalysis, ResearchBundle, Evidence, StorySecti
 from deep_dive.save_analysis import save_analysis
 from editorial_quality import current_editorial, publication_quality, RESEARCH_REVISION
 from event_catalog import balanced_event, category_id
+from country_scope import country_eligible
 from numeric_data_quality import valid_analysis_timeline
 from popularity import POLICY, current_score, event_thresholds, read_all
 
@@ -73,7 +74,7 @@ def select_pending(events, stored, now):
     ready = {int(row['event_id']) for row in stored if row.get('status') == 'ready'
              and current_editorial(row.get('analysis')) and publication_quality(row.get('analysis'))}
     existing_ballots = {int(row['event_id']) for row in stored if isinstance(row.get('analysis'), dict) and row['analysis'].get('binary_questions')}
-    eligible = [e for e in events if balanced_event(e) and int(e['id']) not in ready and int(e['id']) not in existing_ballots and (e.get('data') or {}).get('newsworthy') is not False and not (e.get('data') or {}).get('publication_excluded_reason')]
+    eligible = [e for e in events if country_eligible(e) and balanced_event(e) and int(e['id']) not in ready and int(e['id']) not in existing_ballots and (e.get('data') or {}).get('newsworthy') is not False and not (e.get('data') or {}).get('publication_excluded_reason')]
     thresholds = event_thresholds(eligible, now)
     buckets = defaultdict(deque)
     for event in sorted(eligible, key=lambda e: (-current_score(e, now), int(e['id']))):

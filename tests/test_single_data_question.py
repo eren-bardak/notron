@@ -1,3 +1,4 @@
+from country_scope_fixture import COUNTRY_DATA
 import copy
 import os
 import sys
@@ -186,7 +187,7 @@ class SingleQuestionTests(unittest.TestCase):
             (3, [QUESTION]),
         ):
             with self.subTest(revision=revision):
-                event = {"id": 1, "created_at": now.isoformat(), "enough_data": True,
+                event = {"id": 1, "data": COUNTRY_DATA, "created_at": now.isoformat(), "enough_data": True,
                          "is_visible": True, "numeric_data": numeric, "source_count": 2, "left_source_count": 1, "right_source_count": 1,
                          "popularity_score": 100, "popularity_updated_at": now.isoformat()}
                 analysis = {"schema_version": 2, "question_revision": revision,
@@ -241,4 +242,3 @@ class SingleQuestionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

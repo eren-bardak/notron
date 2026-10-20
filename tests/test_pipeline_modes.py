@@ -1,3 +1,4 @@
+from country_scope_fixture import COUNTRY_DATA
 import os
 import json
 import sys
@@ -132,7 +133,7 @@ class PipelineModeTests(unittest.TestCase):
 
     def test_economy_does_not_report_an_incomplete_batch_as_success(self):
         now = datetime.now(timezone.utc).isoformat()
-        events = [{"id": i, "created_at": now, "source_count": 2, "left_source_count": 1, "right_source_count": 1,
+        events = [{"id": i, "data": COUNTRY_DATA, "created_at": now, "source_count": 2, "left_source_count": 1, "right_source_count": 1,
                    "popularity_score": 100, "popularity_updated_at": now} for i in (1, 2)]
         db = Mock()
         def table(name):
@@ -174,7 +175,7 @@ class PipelineModeTests(unittest.TestCase):
 
     def test_economy_researches_three_broadest_stories_and_verifies_publication(self):
         now = datetime.now(timezone.utc).isoformat()
-        events = [{'id':i,'created_at':now,'source_count':i+1,'left_source_count':1,'right_source_count':1,'article_count':i*3,
+        events = [{'id':i,'data':COUNTRY_DATA,'created_at':now,'source_count':i+1,'left_source_count':1,'right_source_count':1,'article_count':i*3,
                    'popularity_score':100,'popularity_updated_at':now} for i in (1,2,3,4)]
         db = Mock()
         def table(name):

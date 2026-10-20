@@ -1,3 +1,4 @@
+from country_scope_fixture import COUNTRY_DATA
 import copy,sys,unittest
 from pathlib import Path
 from datetime import datetime,timezone
@@ -38,7 +39,7 @@ class QualityTests(unittest.TestCase):
 
     def test_cheap_pass_never_rewrites_a_saved_ballot(self):
         now=datetime.now(timezone.utc)
-        rows=[{'id':i,'popularity_score':20,'popularity_updated_at':now.isoformat(),'left_source_count':1,'right_source_count':1,'source_count':2} for i in (1,2)]
+        rows=[{'id':i,'data':COUNTRY_DATA,'popularity_score':20,'popularity_updated_at':now.isoformat(),'left_source_count':1,'right_source_count':1,'source_count':2} for i in (1,2)]
         stored=[{'event_id':1,'status':'insufficient_data','analysis':{'binary_questions':[{'question':'Önceki soru?'}]}}]
         self.assertEqual([e['id'] for e in select_pending(rows,stored,now)],[2])
 

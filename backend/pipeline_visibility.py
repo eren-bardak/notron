@@ -4,6 +4,7 @@ from numeric_data_quality import valid_analysis_timeline, valid_numeric_data
 from popularity import display_threshold, POLICY, current_score, event_thresholds, parse_time, read_all
 from editorial_quality import current_editorial, publication_quality
 from event_catalog import balanced_event
+from country_scope import country_eligible
 
 
 def valid_questions(analysis):
@@ -28,7 +29,7 @@ def ready_event_ids(events, analyses, now=None, limit=None):
     eligible = []
     for event in events:
         created = parse_time(event.get('created_at'))
-        if (int(event['id']) in ready and created and cutoff <= created <= now
+        if (country_eligible(event) and int(event['id']) in ready and created and cutoff <= created <= now
                 and event.get('enough_data') is True
                 and valid_analysis_timeline(ready[int(event['id'])], event.get('numeric_data'), now)
                 and balanced_event(event)):
@@ -62,7 +63,7 @@ def enforce_previous_year_gate(db, events, analyses, now=None):
 
 def publish_ready_events(db):
     now = datetime.now(timezone.utc)
-    events = read_all(db, 'events', 'id,created_at,category,title,enough_data,is_visible,problem_supported,numeric_data,source_count,left_source_count,right_source_count,popularity_score,popularity_updated_at')
+    events = read_all(db, 'events', 'id,created_at,category,title,data,enough_data,is_visible,problem_supported,numeric_data,source_count,left_source_count,right_source_count,popularity_score,popularity_updated_at')
     cutoff = now - timedelta(hours=POLICY['event_window_hours'])
     recent = [e for e in events if (at := parse_time(e.get('created_at'))) and cutoff <= at <= now]
     ids = [int(e['id']) for e in recent]
