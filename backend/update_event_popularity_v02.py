@@ -90,10 +90,11 @@ def main():
             metadata = {**metadata, 'x_engagement_signal':engagement}
         # The web feed replaces this decayed snapshot contribution with current
         # approved participation and the credit ledger, without counting twice.
+        x_points = combined_x_points(metadata.get('x_signal'), metadata.get('x_engagement_signal'), terms, now) if balanced and worthwhile else 0
         metadata = {**metadata, 'popularity_components': {
-            'revision': 1, 'community': result['community_score']}}
+            'revision': 1, 'community': result['community_score'], 'x': x_points}}
         result['catalog_data'] = metadata
-        result['score'] += combined_x_points(metadata.get('x_signal'), metadata.get('x_engagement_signal'), terms, now) if balanced and worthwhile else 0
+        result['score'] += x_points
     results.sort(key=lambda pair: (-pair[1]['score'], int(pair[0]['id'])))
     print('RANK | SCORE | SOURCES | BALLOTS | EVENT')
     for rank, (event, result) in enumerate(results, 1):
