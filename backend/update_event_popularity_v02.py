@@ -60,8 +60,8 @@ def main():
             result['score'] += trend['points']
             print('GOOGLE_TRENDS_MATCH ' + json.dumps({'event_id': event['id'], **trend}, ensure_ascii=False))
         results.append((event, result))
-    # Spend only on the strongest cross-spectrum candidates. One counts request
-    # includes all 24 hourly buckets; individual posts/likes are never purchased.
+    # Spend on reviewed cross-spectrum candidates within the shared daily cap.
+    # Counts cover 24 hourly buckets; engagement pages buy only public post data.
     results.sort(key=lambda pair: (-pair[1]['score'], int(pair[0]['id'])))
     # One candidate from each category before a second candidate from any category.
     buckets = defaultdict(deque)
