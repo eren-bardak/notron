@@ -187,10 +187,11 @@ def score_event(event, links, news_by_id, sides, micro, comments, answers, analy
     vote_score, vote_count = scored_people(own(answers), now, has_vote, POLICY['community_people_limit'])
     combined_comments = own(micro) + [r for r in own(comments) if r.get('author_role') == 'writer']
     comment_score, _ = scored_people(combined_comments, now, lambda r: r.get('status') == 'active' and bool(str(r.get('text') or '').strip()), POLICY['community_people_limit'])
-    score = article_score + bonus + breadth + POLICY['participation_points'] * vote_score + POLICY['comment_points'] * comment_score
+    community_score = POLICY['participation_points'] * vote_score + POLICY['comment_points'] * comment_score
+    score = article_score + bonus + breadth + community_score
     return {'score': score, 'source_count': len(recent_sources), 'side_sources': side_sources,
             'micro_count': micro_count, 'writer_count': writer_count, 'vote_count': vote_count,
-            'publisher_breadth_score': breadth,
+            'publisher_breadth_score': breadth, 'community_score': community_score,
             'cross_group_at': cross_at.isoformat() if cross_at else None}
 
 

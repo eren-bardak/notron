@@ -64,6 +64,7 @@ class ScoreTests(unittest.TestCase):
         answers=[dict(base,id=1,binary_answers={qid:'yes'},updated_at=NOW.isoformat()),dict(base,id=2,user_id='u2',binary_answers={'fake':'yes'})]
         result=score([],micro=micro,comments=comments,answers=answers)
         self.assertEqual(result['score'],.375) # one comment .5 + one ballot .25, both aged six hours
+        self.assertEqual(result['community_score'],.375) # The live feed replaces this snapshot, never adds it twice.
         self.assertEqual((result['micro_count'],result['vote_count'],result['writer_count']),(1,1,1))
 
     def test_snapshot_decay_matches_full_recomputation(self):

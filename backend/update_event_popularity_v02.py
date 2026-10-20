@@ -88,6 +88,10 @@ def main():
         engagement = x_engagement.measure(terms, metadata.get('x_engagement_signal')) if balanced and worthwhile and paid_x and reviewed else None
         if engagement is not None:
             metadata = {**metadata, 'x_engagement_signal':engagement}
+        # The web feed replaces this decayed snapshot contribution with current
+        # approved participation and the credit ledger, without counting twice.
+        metadata = {**metadata, 'popularity_components': {
+            'revision': 1, 'community': result['community_score']}}
         result['catalog_data'] = metadata
         result['score'] += combined_x_points(metadata.get('x_signal'), metadata.get('x_engagement_signal'), terms, now) if balanced and worthwhile else 0
     results.sort(key=lambda pair: (-pair[1]['score'], int(pair[0]['id'])))
