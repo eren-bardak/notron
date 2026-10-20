@@ -8,8 +8,9 @@ from supabase import create_client
 from popularity import POLICY, normalize, parse_time, read_all, score_event, source_side
 from google_trends import event_trend_bonus, fetch_trends
 from event_catalog import balanced_event, category_id
-from x_signals import XCounts, build_query, signal_points
 from x_engagement import XEngagement, combined_x_points
+from x_relevance import XRelevance
+from x_authors import attach_authors
 from collections import defaultdict, deque
 from editorial_quality import current_editorial, publication_quality
 from country_scope import country_eligible
@@ -20,7 +21,7 @@ def main():
     db = create_client(os.environ['SUPABASE_URL'], os.environ['SUPABASE_KEY'])
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=POLICY['event_window_hours'])
-    events = read_all(db, 'events', 'id,title,category,data,created_at,problem_supported')
+    events = read_all(db, 'events', 'id,title,summary,category,data,created_at,problem_supported')
     events = [e for e in events if country_eligible(e) and (created := parse_time(e.get('created_at'))) and cutoff <= created <= now]
     if not events:
         print('No recent events. Scoring skipped.')
@@ -50,8 +51,8 @@ def main():
         if article and int(link['event_id']) in articles_by_event:
             articles_by_event[int(link['event_id'])].append(article)
     results = []
-    x_counts = XCounts(db, now)
     x_engagement = XEngagement(db, now)
+    x_relevance = XRelevance(db, now)
     paid_x = os.getenv('NOTRON_X_PHASE') != 'deferred'
     for event in events:
         result = score_event(event, links, news_by_id, sides, micro, comments, answers, analysis_by_id.get(int(event['id'])), now)
@@ -61,7 +62,7 @@ def main():
             print('GOOGLE_TRENDS_MATCH ' + json.dumps({'event_id': event['id'], **trend}, ensure_ascii=False))
         results.append((event, result))
     # Spend on reviewed cross-spectrum candidates within the shared daily cap.
-    # Counts cover 24 hourly buckets; engagement pages buy only public post data.
+    # Only reviewed matching post likes contribute; no separate counts purchase.
     results.sort(key=lambda pair: (-pair[1]['score'], int(pair[0]['id'])))
     # One candidate from each category before a second candidate from any category.
     buckets = defaultdict(deque)
@@ -82,12 +83,14 @@ def main():
         worthwhile = metadata.get('newsworthy') is not False and not metadata.get('publication_excluded_reason')
         analysis = analysis_by_id.get(int(event['id']))
         reviewed = current_editorial(analysis) and publication_quality(analysis)
-        signal = x_counts.measure(terms, metadata.get('x_signal')) if balanced and worthwhile and paid_x and reviewed else None
-        if signal is not None:
-            metadata = {**metadata, 'x_signal':signal}
         engagement = x_engagement.measure(terms, metadata.get('x_engagement_signal')) if balanced and worthwhile and paid_x and reviewed else None
+        engagement = engagement or metadata.get('x_engagement_signal')
         if engagement is not None:
-            metadata = {**metadata, 'x_engagement_signal':engagement}
+            accepted = x_relevance.review(event, engagement, articles_by_event[int(event['id'])], allow_paid=paid_x and balanced and worthwhile and reviewed)
+            if accepted is not None:
+                if paid_x:
+                    accepted = attach_authors(accepted, metadata.get('x_engagement_signal'))
+                metadata = {**metadata, 'x_engagement_signal':accepted}
         # The web feed replaces this decayed snapshot contribution with current
         # approved participation and the credit ledger, without counting twice.
         x_points = combined_x_points(metadata.get('x_signal'), metadata.get('x_engagement_signal'), terms, now) if balanced and worthwhile else 0

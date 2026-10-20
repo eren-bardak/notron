@@ -174,19 +174,12 @@ class XEngagement:
 
 
 def combined_x_points(counts, engagement, terms, now):
-    query = build_query(terms)
-    volume = signal_points(counts, query, now)
-    activity = signal_points(engagement, query, now)
-    # A contaminated search sample cannot validate the unfiltered volume bonus.
-    if isinstance(engagement, dict) and engagement.get('relevance_revision') in (1, 2) and engagement.get('rejected_posts', 0):
-        return min(8, activity)
-    def measured(signal):
-        if not isinstance(signal, dict) or not query:
-            return False
-        at, points = parse_time(signal.get('measured_at')), signal.get('points')
-        return (signal.get('status') == 'measured' and signal.get('query_hash') == query_hash(query)
-                and at is not None and timedelta(0) <= now-at < timedelta(hours=24)
-                and type(points) in (int,float) and math.isfinite(points) and 0 <= points <= 8)
-    if measured(counts) and measured(engagement):
-        return min(8, .4 * volume + .6 * activity)
-    return min(8, volume + activity)
+    # Search-volume counts cannot prove event relevance and earn no bonus.
+    if not isinstance(engagement, dict):
+        return 0
+    review = engagement.get('semantic_review') or {}
+    posts = engagement.get('posts', [])
+    if (review.get('revision') != 1 or engagement.get('score_revision') != 2
+            or review.get('accepted_ids') != [post['id'] for post in posts]):
+        return 0
+    return min(8, signal_points(engagement, build_query(terms), now))
