@@ -9,6 +9,16 @@ from test_analysis_evidence import draft_data, SOURCE_A, SOURCE_B, NOW
 from popularity import score_event,normalize,question_ids
 
 class QualityTests(unittest.TestCase):
+    def test_source_excerpt_fallback_preserves_originals_and_evidence_identity(self):
+        from generate_event_briefs import enrich_excerpts
+        row={'id':1,'url':SOURCE_A,'source':'Original','description':'Short RSS excerpt'}
+        rich=enrich_excerpts([row],lambda url:'Publisher article context. '*80)
+        self.assertEqual(row['description'],'Short RSS excerpt')
+        self.assertEqual(rich[0]['id'],row['id'])
+        self.assertEqual(rich[0]['url'],SOURCE_A)
+        self.assertGreater(len(rich[0]['description']),900)
+        self.assertEqual(enrich_excerpts([row],lambda url:''),[row])
+
     def test_brief_copies_original_evidence_without_model_retyping(self):
         payload={'event_id':213,'articles':[{'id':i,'source':source,'title':'Kaynak haberi','description':'Kaynağın yayımladığı özgün açıklama.','url':url,'published_at':NOW.isoformat()}
             for i,source,url in [(1,'Birinci',SOURCE_A),(2,'İkinci',SOURCE_B)]]}

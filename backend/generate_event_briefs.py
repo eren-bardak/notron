@@ -1,10 +1,13 @@
 """One bounded, text-only review of additional stories; uses the shared daily ledger.
 
-Only supplied RSS evidence can support prose. No web search, no numerical charts,
+Only supplied publisher evidence can support prose. No web search, no numerical charts,
 no new paid batch. Thin sources, irrelevant context or low news value fail closed.
 """
 import json
 import os
+import ipaddress
+import requests
+from bs4 import BeautifulSoup
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
@@ -115,6 +118,51 @@ def validate_brief(brief, payload):
     return all(set(analysis[key]['source_urls']) <= evidence_urls for key in ('background', 'event_explanation'))
 
 
+def article_excerpt(url):
+    """Fetch bounded public publisher text, without paid search or scripts."""
+    try:
+        parsed = urlsplit(url)
+        if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
+            return ''
+        if parsed.hostname in ('localhost',) or parsed.hostname.endswith(('.local', '.internal')):
+            return ''
+        try:
+            if not ipaddress.ip_address(parsed.hostname).is_global:
+                return ''
+        except ValueError:
+            pass
+        with requests.get(url, timeout=(3, 6), stream=True, allow_redirects=False,
+                          headers={'User-Agent': 'Notron/1.1 news source reader', 'Accept': 'text/html'}) as response:
+            if response.status_code != 200 or 'text/html' not in response.headers.get('Content-Type', ''):
+                return ''
+            content = bytearray()
+            for chunk in response.iter_content(16384):
+                content.extend(chunk)
+                if len(content) > 1500000:
+                    return ''
+        soup = BeautifulSoup(bytes(content), 'html.parser')
+        body = soup.select_one('[itemprop="articleBody"], article, main')
+        if body is None:
+            return ''
+        for node in body.select('script,style,nav,footer,header,aside,form'):
+            node.decompose()
+        paragraphs = [' '.join(node.get_text(' ', strip=True).split()) for node in body.select('p')]
+        return ' '.join(text for text in paragraphs if len(text) >= 60)[:3500]
+    except (requests.RequestException, ValueError):
+        return ''
+
+
+def enrich_excerpts(rows, fetch=article_excerpt):
+    result = []
+    for row in rows:
+        item = dict(row)
+        excerpt = fetch(item['url']) if len(item.get('description') or '') < 900 else ''
+        if len(excerpt) > len(item.get('description') or ''):
+            item['description'] = excerpt
+        result.append(item)
+    return result
+
+
 def main():
     load_dotenv()
     if os.getenv('NOTRON_PIPELINE_MODE') != 'economy':
@@ -139,9 +187,9 @@ def main():
         for row in sorted(rows, key=lambda r: -len(r.get('description') or '')):
             if row.get('url') and len(row.get('description') or '') >= 80:
                 sources.setdefault(row['source'], {k: row[k] for k in ('id','source','title','url','description','published_at')})
-        rows = list(sources.values())[:4]
+        rows = enrich_excerpts(list(sources.values())[:3])
         for row in rows:
-            row['description'] = row['description'][:1800]
+            row['description'] = row['description'][:2500]
         if len({urlsplit(row['url']).hostname for row in rows}) >= 2:
             payloads[int(event['id'])] = {'event_id':int(event['id']), 'title':event['title'], 'articles':rows}
     if not payloads:
