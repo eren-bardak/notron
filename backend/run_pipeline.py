@@ -29,10 +29,11 @@ def main():
     parser.add_argument('--resume', action='store_true', help='Resume scoring and unfinished selected stories using the same daily budget.')
     parser.add_argument('--scores-only', action='store_true', help='Recompute scores and publication without paid API calls.')
     parser.add_argument('--supplement', action='store_true', help='Refresh category coverage with text-only briefs within the original daily budget.')
+    parser.add_argument('--x-only', action='store_true', help='Refresh X measurements using the remaining shared daily budget; no news generation.')
     args = parser.parse_args()
-    if (args.resume or args.scores_only or args.supplement) and args.mode != 'economy':
+    if (args.resume or args.scores_only or args.supplement or args.x_only) and args.mode != 'economy':
         parser.error('Maintenance requires --mode economy.')
-    if sum([args.resume, args.scores_only, args.supplement]) > 1:
+    if sum([args.resume, args.scores_only, args.supplement, args.x_only]) > 1:
         parser.error('Choose one maintenance operation.')
     if args.mode == 'test':
         if args.check:
@@ -50,6 +51,8 @@ def main():
         from dotenv import load_dotenv
         load_dotenv(BACKEND / '.env')
     required = ('SUPABASE_URL', 'SUPABASE_KEY') if args.scores_only else ('SUPABASE_URL', 'SUPABASE_KEY', 'OPENAI_API_KEY')
+    if args.x_only:
+        required = (*required, 'X_BEARER_TOKEN')
     missing = [key for key in required if not os.getenv(key)]
     if missing:
         print('Pipeline not started. Missing configuration: ' + ', '.join(missing), file=sys.stderr)
@@ -65,6 +68,8 @@ def main():
     steps = ['update_event_popularity_v02.py', 'generate_event_deep_dives.py'] if args.resume or args.scores_only else STEPS
     if args.supplement:
         steps = ['rss_fetcher.py', 'clustering_news_enriched.py', 'update_event_popularity_v02.py', 'generate_event_briefs.py']
+    if args.x_only:
+        steps = []
     if args.scores_only:
         # Scoring can reuse cached X measurements, but cannot buy new ones.
         env['X_BEARER_TOKEN'] = ''
@@ -93,7 +98,7 @@ def main():
             db = create_client(env['SUPABASE_URL'], env['SUPABASE_KEY'])
             env['NOTRON_RUN_ID'] = str(uuid.uuid4())
             os.environ['NOTRON_RUN_ID'] = env['NOTRON_RUN_ID']
-            claim = ledger(db, 'begin_supplement' if args.supplement else 'begin')
+            claim = ledger(db, 'begin_supplement' if args.supplement or args.x_only else 'begin')
             if claim.get('skip'):
                 print(claim.get('reason', 'Daily batch already completed.'), flush=True)
                 return 0
@@ -113,7 +118,7 @@ def main():
         if args.mode == 'economy' and not args.scores_only:
             subprocess.run([sys.executable, str(BACKEND / 'generate_event_deep_dives.py'), '--validate-only'],
                            cwd=BACKEND, env=env, check=True, timeout=max(1, deadline-time.monotonic()))
-        outcome = {'complete': True, 'reason': 'selected cross-spectrum stories passed publication checks'}
+        outcome = {'complete': True, 'reason': 'X refresh pass finished within shared budget' if args.x_only else 'selected cross-spectrum stories passed publication checks'}
     except Exception as error:
         outcome['reason'] = type(error).__name__
         print(f'Pipeline stopped: {error}', file=sys.stderr)
