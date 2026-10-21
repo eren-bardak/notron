@@ -9,12 +9,12 @@ class AdaptiveFeedTests(unittest.TestCase):
         now=datetime(2026,10,19,tzinfo=timezone.utc)
         row={'id':1,'category':'sports','popularity_score':.8,'popularity_updated_at':now.isoformat()}
         self.assertLess(event_thresholds([row],now)[1],.8)
-        self.assertEqual(display_threshold([.8]),2)
+        self.assertEqual(display_threshold([.8]),.76)
 
     def test_sparse_and_dense_score_distributions(self):
         self.assertEqual(display_threshold([]),2)
         self.assertEqual(display_threshold([float('nan'),float('inf'),0,-1]),2)
-        self.assertEqual(display_threshold([4,1]),2)
+        self.assertEqual(display_threshold([4,1]),.95)
         self.assertEqual(display_threshold([20]*38),19)
         values=list(range(38,0,-1))
         threshold=display_threshold(values)

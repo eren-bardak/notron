@@ -54,6 +54,8 @@ def display_threshold(scores, target=None, floor=None):
     if not ranked:
         return minimum
     size = target or max(POLICY['display_target_min'], math.ceil(math.sqrt(len(ranked)) * POLICY['display_target_scale']))
+    if len(ranked) < size:
+        minimum = min(minimum, POLICY['sparse_threshold_min'])
     return max(minimum, ranked[min(size, len(ranked))-1] * .95)
 
 
