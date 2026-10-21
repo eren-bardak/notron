@@ -199,3 +199,45 @@ class EngagementTests(unittest.TestCase):
         self.assertEqual(get.call_count,2)
         self.assertEqual(result['stop_reason'],'invalid_pagination')
         self.assertEqual(result['sample_size'],1)
+
+class RecoveryTests(unittest.TestCase):
+    def test_503_cooldown_blocks_spending_then_allows_fresh_attempt(self):
+        import requests
+        failure=Mock(status_code=503)
+        failure.raise_for_status.side_effect=requests.HTTPError()
+        with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run'}),patch('x_engagement.ledger') as budget:
+            client=XEngagement(Mock(),NOW,Mock(return_value=failure))
+            self.assertIsNone(client.measure(TERMS))
+            attempt=client.last_attempt
+            self.assertEqual(attempt['reason'],'service_unavailable')
+            self.assertEqual(attempt['http_status'],503)
+            self.assertEqual(budget.call_count,1)
+            get=Mock(return_value=Mock(status_code=200,json=lambda:payload([1000])))
+            self.assertIsNone(XEngagement(Mock(),NOW+timedelta(minutes=5),get).measure(TERMS,None,attempt))
+            get.assert_not_called()
+            result=XEngagement(Mock(),NOW+timedelta(minutes=16),get).measure(TERMS,None,attempt)
+            self.assertEqual(result['sample_size'],1)
+            self.assertEqual(get.call_count,1)
+
+    def test_failed_partial_search_is_not_reused_as_six_hour_complete_cache(self):
+        previous=parse_engagement(payload([1000]),build_query(TERMS,True),START,NOW,NOW)
+        previous.update(relevance_revision=4,search_complete=False,requested_pages=3,pages_fetched=1,stop_reason='service_unavailable')
+        get=Mock(return_value=Mock(status_code=200,json=lambda:payload([2000])))
+        with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run'}),patch('x_engagement.ledger'):
+            result=XEngagement(Mock(),NOW+timedelta(minutes=16),get).measure(TERMS,previous)
+        self.assertEqual(get.call_count,1)
+        self.assertEqual(result['likes'],2000)
+
+    def test_partial_failure_retains_valid_pages_and_error_status(self):
+        import requests
+        first=payload([1000]);first['meta']['next_token']='next'
+        failure=Mock(status_code=503);failure.raise_for_status.side_effect=requests.HTTPError()
+        get=Mock(side_effect=[Mock(status_code=200,json=lambda:first),failure])
+        with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run'}),patch('x_engagement.ledger'):
+            client=XEngagement(Mock(),NOW,get)
+            result=client.measure(TERMS)
+        self.assertEqual(result['likes'],1000)
+        self.assertFalse(result['search_complete'])
+        self.assertEqual(result['stop_reason'],'service_unavailable')
+        self.assertEqual(client.last_attempt['http_status'],503)
+        self.assertEqual(get.call_count,2)
