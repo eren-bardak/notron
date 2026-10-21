@@ -97,8 +97,20 @@ class XEngagement:
         except ValueError:
             self.max_pages = 3
         self.attempts, self.disabled = 0, False
+        self.last_attempt = None
 
-    def measure(self, terms, previous=None):
+    def record_attempt(self, query, status, reason=None, http_status=None):
+        self.last_attempt = {'status': status, 'query_hash': query_hash(query),
+                             'attempted_at': self.now.isoformat()}
+        if reason:
+            self.last_attempt['reason'] = reason
+            minutes = 60 if http_status == 429 else 15
+            self.last_attempt['retry_after'] = (self.now + timedelta(minutes=minutes)).isoformat()
+        if type(http_status) is int:
+            self.last_attempt['http_status'] = http_status
+
+    def measure(self, terms, previous=None, previous_attempt=None):
+        self.last_attempt = None
         query = build_query(terms, broad=True)
         if not query:
             return None
@@ -106,9 +118,17 @@ class XEngagement:
         if (at and timedelta(0) <= self.now-at < timedelta(hours=6)
                 and previous.get('query_hash') == query_hash(query) and previous.get('kind') == 'engagement_v1'
                 and previous.get('status') == 'measured' and previous.get('relevance_revision') == 4
-                and (previous.get('search_complete') is True or previous.get('requested_pages') == self.max_pages)):
+                and (previous.get('search_complete') is True or
+                     previous.get('stop_reason') == 'page_limit' and previous.get('pages_fetched', 0) >= self.max_pages)):
+            self.record_attempt(query, 'measured')
             return previous
+        retry_at = parse_time(previous_attempt.get('retry_after')) if isinstance(previous_attempt, dict) else None
+        if (retry_at and retry_at > self.now and previous_attempt.get('query_hash') == query_hash(query)):
+            self.last_attempt = previous_attempt
+            return None
         if not self.token or self.disabled or self.attempts >= MAX_QUERIES or not os.getenv('NOTRON_RUN_ID'):
+            reason = 'missing_token' if not self.token else 'disabled' if self.disabled else 'request_limit' if self.attempts >= MAX_QUERIES else 'no_budget_run'
+            self.record_attempt(query, 'unavailable', reason)
             return None
         end = self.now-timedelta(seconds=30)
         start = end-timedelta(hours=24)
@@ -124,6 +144,7 @@ class XEngagement:
             except BudgetError:
                 self.disabled = True
                 reason = 'budget_limit'
+                self.record_attempt(query, 'unavailable', reason)
                 break
             self.attempts += 1
             params = {'query': query, 'max_results': POST_LIMIT,
@@ -131,6 +152,7 @@ class XEngagement:
                 'end_time': end.isoformat().replace('+00:00', 'Z'), 'tweet.fields': 'created_at,public_metrics,note_tweet'}
             if next_token:
                 params['next_token'] = next_token
+            response = None
             try:
                 response = self.get(SEARCH_URL, params=params,
                     headers={'Authorization': 'Bearer '+self.token}, timeout=15, allow_redirects=False)
@@ -160,9 +182,13 @@ class XEngagement:
             except (requests.RequestException, ValueError, TypeError, BudgetError):
                 # Do not retry an uncertain billed request. Retain already
                 # measured pages and explicitly mark this sample incomplete.
-                print('X engagement page unavailable; preserving measured results only.')
+                code = getattr(response, 'status_code', None)
+                reason = ('service_unavailable' if type(code) is int and code >= 500 else
+                          'rate_limited' if code == 429 else 'authentication' if code in (401, 403) else
+                          'credits_unavailable' if code == 402 else 'page_unavailable')
+                self.record_attempt(query, 'unavailable', reason, code)
+                print('X_SEARCH_UNAVAILABLE reason=' + reason + ' http=' + (str(code) if type(code) is int else 'unknown'))
                 self.disabled = True
-                reason = 'page_unavailable'
                 break
         if not pages:
             return None
@@ -174,6 +200,8 @@ class XEngagement:
                       rejected_posts=len(rows)-len(kept), duplicate_posts=fetched-len(rows),
                       pages_fetched=pages, requested_pages=self.max_pages,
                       search_complete=not more, stop_reason=reason or ('page_limit' if more else 'exhausted'))
+        if self.last_attempt is None:
+            self.record_attempt(query, 'measured' if not more else 'partial', reason)
         result['engagement_filter'] = {'min_likes': 100, 'min_replies': 101, 'min_impressions': 10000, 'operator': 'or'}
         return result
 
