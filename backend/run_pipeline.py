@@ -40,7 +40,7 @@ def main():
             return 0
         # Never load .env or pass live credentials into offline tests.
         env = dict(os.environ)
-        for key in ('OPENAI_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY', 'SUPABASE_ANON_KEY', 'X_BEARER_TOKEN'):
+        for key in ('OPENAI_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY', 'SUPABASE_ANON_KEY', 'X_BEARER_TOKEN', 'YOUTUBE_API_KEY', 'YOUTUBE_DATA_API_KEY'):
             env.pop(key, None)
         return subprocess.run(
             [sys.executable, str(BACKEND / 'offline_tests.py')],
