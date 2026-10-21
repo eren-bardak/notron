@@ -20,15 +20,15 @@ def score(news, now=NOW, **extra):
                        extra.get('micro',[]),extra.get('comments',[]),extra.get('answers',[]), QUESTIONS,now)
 
 class ScoreTests(unittest.TestCase):
-    def test_same_snapshot_retries_do_not_inflate_and_six_hours_halves(self):
+    def test_same_snapshot_retries_do_not_inflate_and_twelve_hours_halves(self):
         news=[article(1,'A'),article(2,'B')]
         self.assertEqual(score(news)['score'],16)
         self.assertEqual(score(news)['score'],score(news)['score'])
-        self.assertEqual(score(news, NOW+timedelta(hours=6))['score'],8)
-        self.assertEqual(score(news, NOW+timedelta(hours=12))['score'],4)
+        self.assertEqual(score(news, NOW+timedelta(hours=12))['score'],8)
+        self.assertEqual(score(news, NOW+timedelta(hours=24))['score'],4)
 
     def test_new_activity_does_not_refresh_old_points(self):
-        news=[article(1,'A',6),article(2,'B',6),article(3,'C')]
+        news=[article(1,'A',12),article(2,'B',12),article(3,'C')]
         self.assertEqual(score(news)['score'],12)  # original 16 / 2, plus new publisher's article 4
 
     def test_first_second_group_earns_bonus_once(self):
@@ -56,14 +56,14 @@ class ScoreTests(unittest.TestCase):
         self.assertEqual(score([],answers=[invalid])['vote_count'],0)
 
     def test_real_unique_participation_only_and_edits_keep_original_age(self):
-        base={'event_id':1,'created_at':(NOW-timedelta(hours=6)).isoformat(),'user_id':'u1','status':'active','text':'A thought'}
+        base={'event_id':1,'created_at':(NOW-timedelta(hours=12)).isoformat(),'user_id':'u1','status':'active','text':'A thought'}
         micro=[dict(base,id=1),dict(base,id=2,created_at=NOW.isoformat()),dict(base,id=3,user_id='u2',status='hidden')]
         comments=[dict(base,id=1,author_role='writer'),dict(base,id=2,author_role='reader',user_id='u3'),
                   dict(base,id=3,author_role='writer',user_id=None)]
         qid=next(iter(question_ids(QUESTIONS)))
         answers=[dict(base,id=1,binary_answers={qid:'yes'},updated_at=NOW.isoformat()),dict(base,id=2,user_id='u2',binary_answers={'fake':'yes'})]
         result=score([],micro=micro,comments=comments,answers=answers)
-        self.assertEqual(result['score'],.375) # one comment .5 + one ballot .25, both aged six hours
+        self.assertEqual(result['score'],.375) # one comment .5 + one ballot .25, both aged twelve hours
         self.assertEqual(result['community_score'],.375) # The live feed replaces this snapshot, never adds it twice.
         self.assertEqual((result['micro_count'],result['vote_count'],result['writer_count']),(1,1,1))
 
@@ -94,7 +94,7 @@ class ScoreTests(unittest.TestCase):
 
     def test_historical_group_crossing_does_not_refresh_after_old_article_expires(self):
         result=score([article(1,'A',37),article(2,'B',36),article(3,'A')])
-        expected=4*2**(-37/6)+4*2**(-36/6)+2+8*2**(-36/6)
+        expected=4*2**(-37/12)+4*2**(-36/12)+2+8*2**(-36/12)
         self.assertAlmostEqual(result['score'],expected)
 
     def test_read_all_paginates_and_propagates_failure(self):
