@@ -20,6 +20,12 @@ def score(news, now=NOW, **extra):
                        extra.get('micro',[]),extra.get('comments',[]),extra.get('answers',[]), QUESTIONS,now)
 
 class ScoreTests(unittest.TestCase):
+    def test_sparse_agenda_keeps_qualified_low_score_stories(self):
+        from popularity import display_threshold
+        self.assertAlmostEqual(display_threshold([1.1, 1.5, 3]), 1.045)
+        self.assertGreaterEqual(display_threshold([1]*10), 2)
+        self.assertEqual(display_threshold([]), 2)
+
     def test_same_snapshot_retries_do_not_inflate_and_twelve_hours_halves(self):
         news=[article(1,'A'),article(2,'B')]
         self.assertEqual(score(news)['score'],16)
