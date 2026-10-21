@@ -24,7 +24,7 @@ class RelevanceTests(unittest.TestCase):
   self.assertEqual(result['likes'],2000);self.assertEqual(result['sample_size'],1)
   self.assertEqual(result['semantic_review']['rejected_count'],1)
   self.assertEqual(result['points'],related_likes_points(2000))
-  self.assertAlmostEqual(combined_x_points({'points':8},result,TERMS,NOW+timedelta(hours=6)),result['points']/2)
+  self.assertAlmostEqual(combined_x_points({'points':8},result,TERMS,NOW+timedelta(hours=12)),result['points']/2)
   self.assertEqual(combined_x_points({'points':8},signal(),TERMS,NOW),0)
  def test_invented_quotes_duplicate_decisions_and_unreviewed_ids_are_rejected(self):
   for changes in ([{'id':'1','related':True,'evidence_quote':'invented proof'},decisions()[1]],decisions()[:1],[decisions()[0],decisions()[0]]):
