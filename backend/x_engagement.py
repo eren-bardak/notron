@@ -120,7 +120,7 @@ class XEngagement:
                 and previous.get('status') == 'measured' and previous.get('relevance_revision') == 4
                 and (previous.get('search_complete') is True or
                      previous.get('stop_reason') == 'page_limit' and previous.get('pages_fetched', 0) >= self.max_pages)):
-            self.record_attempt(query, 'measured')
+            self.record_attempt(query, 'measured' if previous.get('search_complete') is True else 'partial')
             return previous
         retry_at = parse_time(previous_attempt.get('retry_after')) if isinstance(previous_attempt, dict) else None
         if (retry_at and retry_at > self.now and previous_attempt.get('query_hash') == query_hash(query)):
