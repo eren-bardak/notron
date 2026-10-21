@@ -68,7 +68,7 @@ class GoogleTrendsTests(unittest.TestCase):
     def test_unchanged_feed_timestamp_ages_bonus_on_rerun_and_in_web_feed(self):
         trends = parse_trends(feed(), NOW)
         first = event_trend_bonus([article()], trends, NOW)['points']
-        later = NOW + timedelta(hours=6)
+        later = NOW + timedelta(hours=12)
         second = event_trend_bonus([article()], trends, later)['points']
         self.assertAlmostEqual(second, first / 2)
         self.assertAlmostEqual(current_score({'popularity_score': first, 'popularity_updated_at': NOW.isoformat()}, later), second)
