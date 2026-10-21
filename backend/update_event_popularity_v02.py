@@ -77,7 +77,8 @@ def main():
             if not buckets[category]:
                 del buckets[category]
     for event, result in ordered:
-        balanced = balanced_event({'source_count':result['source_count'],
+        balanced = balanced_event({'category':event.get('category'), 'title':event.get('title', ''),
+            'source_count':result['source_count'],
             'left_source_count':len(result['side_sources']['left']),
             'right_source_count':len(result['side_sources']['right'])})
         metadata = event.get('data') if isinstance(event.get('data'), dict) else {}

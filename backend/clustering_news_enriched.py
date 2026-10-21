@@ -575,8 +575,9 @@ def main():
     Do not manufacture harm, conflict or criticism around good news.
     Rank candidates by breadth of distinct publishers, then supporting article
     count. Group all eligible occurrences, including smaller category stories.
-    Each event MUST have at least one source_side=left and one source_side=right.
-    Center sources are welcome but cannot substitute for either side.
+    Every event MUST have at least two distinct publishers. Politics events MUST
+    additionally have at least one source_side=left and one source_side=right.
+    For other categories, any combination of publisher sides is acceptable.
     Attach new articles to matching existing_event_id articles whenever they
     describe the same occurrence. Different dates/places are different events.
 
@@ -695,7 +696,7 @@ def main():
             not country_eligible({'data': {'country_scope': event.country_scope.model_dump()}}, articles=articles)
             or not new_news_ids.intersection(ids)
             or len(sources) < MIN_SOURCES
-            or not balanced_articles(articles, source_leanings)
+            or not balanced_articles(articles, source_leanings, event.category, event.title)
             or event.confidence < MIN_CONFIDENCE
             or not event.newsworthy or len(event.news_value_reason.strip()) < 30
             or len(old_event_ids) > 1

@@ -3,7 +3,7 @@
   "article_points": 4,
   "participation_points": 0.25,
   "writer_points": 0.5,
-  "half_life_hours": 6,
+  "half_life_hours": 12,
   "display_threshold": 2,
   "display_threshold_min": 2,
   "event_window_hours": 24,
