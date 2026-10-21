@@ -36,7 +36,7 @@ class SignalsTests(unittest.TestCase):
         self.assertEqual(signal['growth_ratio'],4)
         self.assertLessEqual(signal['points'],15)
         self.assertNotIn('likes',signal)
-        self.assertAlmostEqual(signal_points(signal,build_query(TERMS),NOW+timedelta(hours=6)),signal['points']/2)
+        self.assertAlmostEqual(signal_points(signal,build_query(TERMS),NOW+timedelta(hours=12)),signal['points']/2)
         self.assertEqual(signal_points(signal,build_query(['Other','occurrence']),NOW),0)
         self.assertEqual(signal_points(signal,build_query(TERMS),NOW+timedelta(hours=24)),0)
 
@@ -94,9 +94,12 @@ class SignalsTests(unittest.TestCase):
 
     def test_six_categories_and_both_sides_are_required(self):
         self.assertEqual(len(CATEGORIES),6)
+        self.assertTrue(balanced_event({'category':'technology','source_count':2,'center_source_count':2}))
+        self.assertFalse(balanced_event({'category':'sports','source_count':1}))
+        self.assertFalse(balanced_event({'category':'politics','source_count':2,'center_source_count':2}))
         self.assertEqual(category_id('economy'),'finance')
         self.assertEqual(category_id(None,'Fenerbahçe şampiyon oldu'),'sports')
-        self.assertFalse(balanced_event({'source_count':3,'left_source_count':2,'center_source_count':1}))
+        self.assertFalse(balanced_event({'category':'politics','source_count':3,'left_source_count':2,'center_source_count':1}))
         self.assertTrue(balanced_event({'source_count':2,'left_source_count':1,'right_source_count':1}))
         articles=[{'source':'Sözcü','url':'https://a.test/1'},{'source':'Sabah','url':'https://b.test/1'}]
         self.assertTrue(balanced_articles(articles,{'sozcu':'left','sabah':'right'}))
