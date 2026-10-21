@@ -86,7 +86,9 @@ def main():
         worthwhile = metadata.get('newsworthy') is not False and not metadata.get('publication_excluded_reason')
         analysis = analysis_by_id.get(int(event['id']))
         reviewed = current_editorial(analysis) and publication_quality(analysis)
-        engagement = x_engagement.measure(terms, metadata.get('x_engagement_signal')) if balanced and worthwhile and paid_x and reviewed else None
+        engagement = x_engagement.measure(terms, metadata.get('x_engagement_signal'), metadata.get('x_search_status')) if balanced and worthwhile and paid_x and reviewed else None
+        if balanced and worthwhile and paid_x and reviewed and x_engagement.last_attempt is not None:
+            metadata = {**metadata, 'x_search_status': x_engagement.last_attempt}
         engagement = engagement or metadata.get('x_engagement_signal')
         if engagement is not None:
             accepted = x_relevance.review(event, engagement, articles_by_event[int(event['id'])], allow_paid=paid_x and balanced and worthwhile and reviewed)
