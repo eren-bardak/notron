@@ -37,11 +37,11 @@ class Brief(BaseModel):
 
 
 class BriefBackground(StorySection):
-    narration: str = Field(min_length=140, max_length=1600)
+    narration: str
 
 
 class BriefExplanation(StorySection):
-    narration: str = Field(min_length=100, max_length=1600)
+    narration: str
 
 
 class ReviewedBrief(EventAnalysis):
@@ -204,8 +204,9 @@ minor crime, unverified transfers or duplicated incidents. Never fill a category
 just to avoid an empty screen. Background must explain specific prior context,
 institutions or supported consequences, distinct from the event summary.
 If the excerpts do not support that context, OMIT the event; do not pad it.
-Write concise neutral Turkish: background 3-5 sentences, 140-800 characters;
-event explanation 2-3 sentences, 100-500 characters. Keep allegations attributed,
+Write concise neutral Turkish, with no character or sentence quotas. Include
+only important, sourced information; do not pad or omit decisive context to fit
+a length target. Long sections can scroll in the app. Keep allegations attributed,
 future targets distinct from observations, and conflicting counts explicitly uncertain.
 Qualitative mode ONLY: no charts, numeric series, key metrics or hidden patterns.
 Exactly one short event-specific interpretive question about plausible consequences

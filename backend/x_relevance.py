@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from daily_budget import budget_client
 from popularity import parse_time
 from x_engagement import parse_engagement, MAX_SAMPLE
-from x_signals import build_query, query_hash
+from x_signals import build_query, discovery_query, query_hash
 
 
 class PostDecision(BaseModel):
@@ -49,7 +49,8 @@ def apply_review(event, signal, decisions, now, reviewer='gpt-6-luna'):
                 raise ValueError('Acceptance requires an exact supporting quote')
             accepted.append(post)
     terms = event.get('terms') or (event.get('data') or {}).get('x_query_terms')
-    query = next((q for broad in (False, True) if (q := build_query(terms, broad=broad)) and signal.get('query_hash') == query_hash(q)), None)
+    queries = [build_query(terms, broad=broad) for broad in (False, True)] + [discovery_query(terms)]
+    query = next((q for q in queries if q and signal.get('query_hash') == query_hash(q)), None)
     if not query or signal.get('query_hash') != query_hash(query):
         raise ValueError('Review query does not belong to this event')
     rows = [{'id': p['id'], 'text': p.get('text', ''), 'created_at': p['created_at'],

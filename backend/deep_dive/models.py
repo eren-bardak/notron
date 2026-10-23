@@ -85,7 +85,7 @@ class Chart(BaseModel):
 
 class StorySection(BaseModel):
     title: str
-    narration: str = Field(max_length=1600)
+    narration: str
     source_urls: list[str]
 
 

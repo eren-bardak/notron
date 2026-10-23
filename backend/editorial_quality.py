@@ -22,4 +22,4 @@ def publication_quality(analysis):
         return False
     sections = [analysis.get(key) or {} for key in ('background', 'event_explanation')]
     texts = [' '.join(str(section.get('narration') or '').split()) for section in sections]
-    return len(texts[0]) >= 140 and len(texts[1]) >= 100 and texts[0].casefold() != texts[1].casefold()
+    return bool(texts[0] and texts[1]) and texts[0].casefold() != texts[1].casefold()

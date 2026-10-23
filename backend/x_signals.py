@@ -72,6 +72,20 @@ def query_hash(query):
     return hashlib.sha256(query.encode()).hexdigest()
 
 
+def discovery_query(terms):
+    """Retrieve by the event's primary anchor; semantic review decides relevance.
+
+    Context groups are hints for the reviewer, never mandatory tweet wording.
+    Keep the legacy query builder for validating previously reviewed samples.
+    """
+    groups = query_groups(terms)
+    if not groups:
+        return None
+    anchor = groups[0]
+    part = '"'+anchor[0]+'"' if len(anchor) == 1 else '('+' OR '.join('"'+term+'"' for term in anchor)+')'
+    return part + ' lang:tr -is:retweet'
+
+
 def parse_counts(payload, start, end, query, now):
     if not isinstance(payload, dict) or payload.get('errors'):
         raise ValueError('Incomplete X counts response')

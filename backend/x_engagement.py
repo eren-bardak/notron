@@ -13,7 +13,7 @@ import requests
 
 from daily_budget import BudgetError, ledger
 from popularity import decay, parse_time
-from x_signals import build_query, query_hash, signal_points, related_post
+from x_signals import build_query, discovery_query, query_hash, signal_points
 
 SEARCH_URL = 'https://api.x.com/2/tweets/search/recent'
 POST_LIMIT = 10
@@ -30,9 +30,10 @@ def post_text(row):
 
 def qualifying_post(row, terms):
     metrics = row.get('public_metrics') or {}
-    return (related_post(post_text(row), terms)
-            and (metrics.get('like_count', 0) >= 100 or metrics.get('reply_count', 0) > 100
-                 or (type(metrics.get('impression_count')) is int and metrics['impression_count'] >= 10000)))
+    # Candidate selection is popularity-only. XRelevance must approve the exact
+    # event before any candidate becomes public or earns ranking points.
+    return (metrics.get('like_count', 0) >= 100 or metrics.get('reply_count', 0) > 100
+            or (type(metrics.get('impression_count')) is int and metrics['impression_count'] >= 10000))
 
 
 def parse_engagement(payload, query, start, end, now, limit=POST_LIMIT):
@@ -111,13 +112,13 @@ class XEngagement:
 
     def measure(self, terms, previous=None, previous_attempt=None):
         self.last_attempt = None
-        query = build_query(terms, broad=True)
+        query = discovery_query(terms)
         if not query:
             return None
         at = parse_time(previous.get('measured_at')) if isinstance(previous, dict) else None
         if (at and timedelta(0) <= self.now-at < timedelta(hours=6)
                 and previous.get('query_hash') == query_hash(query) and previous.get('kind') == 'engagement_v1'
-                and previous.get('status') == 'measured' and previous.get('relevance_revision') == 4
+                and previous.get('status') == 'measured' and previous.get('relevance_revision') == 5
                 and (previous.get('search_complete') is True or
                      previous.get('stop_reason') == 'page_limit' and previous.get('pages_fetched', 0) >= self.max_pages)):
             self.record_attempt(query, 'measured' if previous.get('search_complete') is True else 'partial')
@@ -196,7 +197,7 @@ class XEngagement:
         more = bool(next_token) or reason is not None
         result = parse_engagement({'data': kept, 'meta': {'result_count': len(kept), 'next_token': more}},
                                   query, start, end, self.now, limit=MAX_SAMPLE)
-        result.update(relevance_revision=4, fetched_sample_size=fetched,
+        result.update(relevance_revision=5, fetched_sample_size=fetched,
                       rejected_posts=len(rows)-len(kept), duplicate_posts=fetched-len(rows),
                       pages_fetched=pages, requested_pages=self.max_pages,
                       search_complete=not more, stop_reason=reason or ('page_limit' if more else 'exhausted'))
@@ -215,4 +216,5 @@ def combined_x_points(counts, engagement, terms, now):
     if (review.get('revision') != 1 or engagement.get('score_revision') != 2
             or review.get('accepted_ids') != [post['id'] for post in posts]):
         return 0
-    return min(8, max(signal_points(engagement, build_query(terms, broad=broad), now) for broad in (False, True)))
+    queries = [build_query(terms, broad=broad) for broad in (False, True)] + [discovery_query(terms)]
+    return min(8, max(signal_points(engagement, query, now) for query in queries))
