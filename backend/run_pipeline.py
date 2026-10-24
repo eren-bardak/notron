@@ -103,6 +103,7 @@ def main():
                 print(claim.get('reason', 'Daily batch already completed.'), flush=True)
                 return 0
             batch_started = True
+        stage_failures = []
         for script in steps:
             print(f'Running {script}', flush=True)
             remaining = max(1, deadline - time.monotonic()) if args.mode == 'economy' else 9000
@@ -110,7 +111,16 @@ def main():
             env['NOTRON_X_PHASE'] = 'deferred'
             if args.scores_only and script == 'generate_event_deep_dives.py':
                 command.append('--validate-only')
-            subprocess.run(command, cwd=BACKEND, env=env, check=True, timeout=remaining)
+            try:
+                subprocess.run(command, cwd=BACKEND, env=env, check=True, timeout=remaining)
+            except subprocess.CalledProcessError as error:
+                if args.mode != 'economy' or args.scores_only or script != 'generate_event_deep_dives.py':
+                    raise
+                # A selected story can fail after other stories were published.
+                # Measure eligible stories under the same budget, but keep the
+                # batch incomplete so research can be resumed later.
+                stage_failures.append({'script': script, 'returncode': error.returncode})
+                print('Research incomplete; continuing social measurements for eligible stories.', flush=True)
         if args.mode == 'economy' and not args.scores_only:
             env['NOTRON_X_PHASE'] = 'measure'
             subprocess.run([sys.executable, str(BACKEND / 'update_event_popularity_v02.py')], cwd=BACKEND,
@@ -118,7 +128,11 @@ def main():
         if args.mode == 'economy' and not args.scores_only:
             subprocess.run([sys.executable, str(BACKEND / 'generate_event_deep_dives.py'), '--validate-only'],
                            cwd=BACKEND, env=env, check=True, timeout=max(1, deadline-time.monotonic()))
-        outcome = {'complete': True, 'reason': 'X refresh pass finished within shared budget' if args.x_only else 'selected cross-spectrum stories passed publication checks'}
+        if stage_failures:
+            outcome = {'complete': False, 'reason': 'research_incomplete_social_refresh_finished',
+                       'failed_stages': stage_failures}
+        else:
+            outcome = {'complete': True, 'reason': 'X refresh pass finished within shared budget' if args.x_only else 'selected cross-spectrum stories passed publication checks'}
     except Exception as error:
         outcome['reason'] = type(error).__name__
         print(f'Pipeline stopped: {error}', file=sys.stderr)
