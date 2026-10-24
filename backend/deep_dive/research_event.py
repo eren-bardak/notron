@@ -51,7 +51,8 @@ Return:
 - Problem fields only as descriptive metadata: set problem_supported=false,
   central_problem="" and problem_evidence=[] when no problem is evidenced.
   Continue researching background and numerical data regardless of that flag.
-- A detailed neutral Turkish background of 8 to 12 evidence-rich sentences.
+- A neutral Turkish background containing the important sourced context, without
+  a character or sentence quota, repetition or filler.
 - A separate 5 to 8 sentence explanation of this concrete event.
 - First define reader_question: ONE concrete question raised by THIS occurrence.
   Name the actual decision, claim, project, location or actors when useful.

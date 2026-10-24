@@ -181,13 +181,14 @@ a scientific development. Give a concrete evidence-based reason (30+ characters)
 Routine celebrity appearances, fashion purchases, unconfirmed transfers, minor
 isolated crime and thin repetitive announcements do not qualify. Reject them
 with newsworthy=false. Background must add specific context distinct from the
-summary, at least 140 characters; the event explanation at least 100 characters.
+summary. Neither section has a character or sentence quota: include the important
+sourced facts without padding, repetition or filler. Long sections can scroll.
 
 The output must contain:
-1. A concise background section of 3 to 6 sentences. Preserve the actual reason
+1. A concise background section. Preserve the actual reason
    an earlier vote/decision was challenged or changed, its exact legal status,
    and the relevant response. State unknowns instead of silently omitting them.
-2. A concise concrete-event explanation of 2 to 3 sentences.
+2. A concise concrete-event explanation, complete without filler.
 3. A data_story with zero to three directly relevant key metrics, evidenced patterns,
    baselines, what to watch next and explicit limitations. Prefer two or three useful
    facts about THIS event's scale, change or consequences, but use one or [] when
@@ -282,13 +283,14 @@ the supplied sourced research. Numerical metrics are optional and none qualified
 for this event: set evidence_mode="qualitative", charts=[], and
  data_story.key_metrics=[]. Never invent measurements or fill a numerical quota.
 Set schema_version=2, question_revision=3, editorial_review=null, event_id from
-research, and generated_at to the current UTC time. Provide background (3-6
-sentences) explaining key context, and event_explanation (2-3 sentences) stating
+research, and generated_at to the current UTC time. Provide background
+explaining key context, and event_explanation stating
 what changed. Each section must include exact source_urls copied from evidence;
 together they must include at least two different source domains. Preserve
 attribution, uncertainty and contrary evidence; do not treat allegations as fact.
 Do not add facts, URLs or causality not supported by the research. Keep each
-narration under1600 characters. data_story: concise headline, contextual baseline,
+narration focused on important sourced facts, with no character or sentence quota
+and no padding; long text can scroll. data_story: concise headline, contextual baseline,
 no speculative hidden_patterns, limitations and what_to_watch_next tied to this
 event. Include exactly one q1 question, question_type="event", about a meaningful
 disagreement between two defensible interpretations or conditional consequences

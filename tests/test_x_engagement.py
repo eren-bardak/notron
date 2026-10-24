@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from x_engagement import XEngagement, parse_engagement, combined_x_points, MAX_QUERIES
-from x_signals import build_query
+from x_signals import build_query, discovery_query
 from daily_budget import BudgetError
 
 NOW=datetime(2026,10,19,13,tzinfo=timezone.utc)
@@ -21,6 +21,22 @@ def payload(likes):
         for i,n in enumerate(likes)],'meta':{'result_count':len(likes)}}
 
 class EngagementTests(unittest.TestCase):
+    def test_popular_paraphrase_reaches_semantic_review_without_all_keywords(self):
+        terms=['Emrah Kozay',['Çukurova','tutuklama']]
+        data=payload([2000])
+        data['data'][0]['text']='Emrah Kozay hakkında mahkeme özgürlüğünü kısıtlayan karar verdi.'
+        get=Mock(return_value=Mock(status_code=200,json=lambda:data))
+        with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run'}),patch('x_engagement.ledger'):
+            result=XEngagement(Mock(),NOW,get).measure(terms)
+        self.assertEqual(get.call_args.kwargs['params']['query'],'"Emrah Kozay" lang:tr -is:retweet')
+        self.assertEqual(result['sample_size'],1)
+        self.assertEqual(combined_x_points(None,result,terms,NOW),0)
+        from x_relevance import apply_review
+        reviewed=apply_review({'id':9,'terms':terms},result,[{'id':'1','related':True,
+            'evidence_quote':'Emrah Kozay hakkında mahkeme özgürlüğünü kısıtlayan karar verdi.'}],NOW)
+        self.assertGreater(combined_x_points(None,reviewed,terms,NOW),0)
+        self.assertIsNone(discovery_query(['Emrah Kozay','from:injection']))
+
     def test_view_only_post_survives_broad_search_and_missing_views_stay_unknown(self):
         data=payload([20,20])
         data['data'][0]['public_metrics']['impression_count']=1000000
@@ -50,11 +66,16 @@ class EngagementTests(unittest.TestCase):
         get=Mock(return_value=Mock(status_code=200,json=lambda:data))
         with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run'}),patch('x_engagement.ledger') as budget:
             result=XEngagement(Mock(),NOW,get).measure(TERMS)
-        self.assertEqual(result['sample_size'],1)
+        self.assertEqual(result['sample_size'],2)  # candidates await semantic review
         self.assertEqual(result['fetched_sample_size'],2)
-        self.assertEqual(result['rejected_posts'],1)
-        self.assertEqual(result['likes'],1000)
-        self.assertEqual(result['likes_1m_plus'],0)
+        self.assertEqual(result['rejected_posts'],0)
+        self.assertEqual(combined_x_points(None,result,TERMS,NOW),0)
+        from x_relevance import apply_review
+        reviewed=apply_review({'id':1,'terms':TERMS},result,[
+            {'id':'1','related':False,'evidence_quote':''},
+            {'id':'2','related':True,'evidence_quote':'Orionid meteor yağmuru'}],NOW)
+        self.assertEqual(reviewed['likes'],1000)
+        self.assertEqual(reviewed['likes_1m_plus'],0)
         self.assertEqual(budget.call_args_list[1].kwargs['p_amount'],10000)
 
     def test_100_likes_is_inclusive_and_101_replies_still_qualifies(self):
@@ -184,7 +205,7 @@ class EngagementTests(unittest.TestCase):
         with patch.dict(os.environ,{'X_BEARER_TOKEN':'test','NOTRON_RUN_ID':'run','X_MAX_PAGES':'3'}),patch('x_engagement.ledger'):
             client=XEngagement(Mock(),NOW,get)
             result=client.measure(TERMS,old)
-            self.assertEqual(result['relevance_revision'],4)
+            self.assertEqual(result['relevance_revision'],5)
             self.assertEqual(client.measure(TERMS,result),result)
         self.assertEqual(get.call_count,1)
 

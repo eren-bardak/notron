@@ -17,6 +17,7 @@ from xml.etree import ElementTree as ET
 import requests
 from popularity import normalize, parse_time
 from x_signals import query_groups
+from youtube_relevance import YouTubeRelevance, event_fingerprint
 
 CHANNELS = {
     'UCBgTP2LOFVPmq15W-RH-WXA': 'TRT Haber',
@@ -37,10 +38,12 @@ def terms_hash(terms):
     return hashlib.sha256(json.dumps(terms, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
 
 
-def matching_video(title, description, terms):
+def matching_video(title, description, terms, anchor_only=False):
     groups = query_groups(terms)
     if not groups or not isinstance(title, str):
         return False
+    if anchor_only:
+        groups=groups[:1]
     def tokens(text):
         words = re.findall(r'[^\W_]+', normalize(text))
         return [next((canonical for prefix, canonical in MATCH['prefixAliases'] if word.startswith(prefix)), word) for word in words]
@@ -87,10 +90,11 @@ def parse_feed(content, channel_id, now):
 
 
 class YouTubeFeeds:
-    def __init__(self, now=None, get=None, api_key=None):
+    def __init__(self, now=None, get=None, api_key=None, db=None, reviewer=None):
         self.now, self.get = now or datetime.now(timezone.utc), get or requests.get
         self.api_key = (api_key if api_key is not None else os.getenv('YOUTUBE_API_KEY') or os.getenv('YOUTUBE_DATA_API_KEY') or '').strip()
         self.loaded, self.videos, self.ok, self.searches = False, [], 0, 0
+        self.reviewer = reviewer or (YouTubeRelevance(db,self.now) if db is not None else None)
 
     def load(self):
         if self.loaded:
@@ -115,8 +119,11 @@ class YouTubeFeeds:
         if not self.api_key:
             return [], 'missing_key'
         groups = query_groups(terms)
-        queries = [str(event.get('title') or '')[:240], ' '.join(group[0] for group in groups)]
-        queries = list(dict.fromkeys(q for q in queries if q.strip()))
+        if not groups:
+            return [], 'invalid_terms'
+        # One short entity/event anchor per story: full headlines overconstrain
+        # search and two attempts per story previously starved later stories.
+        queries = ['|'.join(groups[0])]
         found, status = {}, 'limited'
         for query in queries:
             if self.searches >= MAX_SEARCHES:
@@ -134,7 +141,7 @@ class YouTubeFeeds:
                     raise ValueError('Incomplete YouTube search')
                 ids = list(dict.fromkeys(item.get('id',{}).get('videoId') for item in payload['items'][:25] if isinstance(item,dict)))
                 ids = [video_id for video_id in ids if isinstance(video_id,str) and re.fullmatch(r'[A-Za-z0-9_-]{11}',video_id)]
-                status = 'measured'
+                status = 'partial' if payload.get('nextPageToken') else 'measured'
                 if not ids:
                     continue
                 response = self.get('https://www.googleapis.com/youtube/v3/videos', params={'key':self.api_key,'part':'snippet','id':','.join(ids)},timeout=10,allow_redirects=False)
@@ -148,7 +155,7 @@ class YouTubeFeeds:
                         'description':html.unescape(str(snippet.get('description','')))[:1500],
                         'channel_id':snippet.get('channelId'),'channel':str(snippet.get('channelTitle',''))[:100],
                         'published_at':snippet.get('publishedAt'),'source':'youtube_data_api'}
-                    if row['id'] in ids and valid_video(row,self.now) and matching_video(row['title'],row['description'],terms):
+                    if row['id'] in ids and valid_video(row,self.now):
                         found[row['id']] = row
                 if found:
                     break
@@ -168,10 +175,14 @@ class YouTubeFeeds:
         same = previous.get('event_id') == event['id'] and previous.get('terms_hash') == fingerprint
         ttl = timedelta(hours=6) if previous.get('videos') else timedelta(minutes=30)
         mode = 'api_and_feeds' if self.api_key else 'channel_feeds'
-        if same and previous.get('revision') == 2 and previous.get('mode') == mode and at and timedelta(0) <= self.now-at < ttl:
+        revision = 3 if self.reviewer else 2
+        review = previous.get('semantic_review') or {}
+        current_review = not self.reviewer or review.get('event_fingerprint') == event_fingerprint(event)
+        if same and previous.get('revision') == revision and previous.get('mode') == mode and current_review and at and timedelta(0) <= self.now-at < ttl:
             return previous
         self.load()
-        matched = {v['id']:v for v in self.videos if matching_video(v['title'],v.get('description'),terms)}
+        # Feed discovery is broad too; semantic review decides exact-event relevance.
+        matched = {v['id']:v for v in self.videos if matching_video(v['title'],v.get('description'),terms,anchor_only=bool(self.reviewer))}
         videos, status = self.search(event,terms)
         matched.update({v['id']:v for v in videos})
         if not self.ok and status not in ('measured','limited') and not matched:
@@ -180,7 +191,17 @@ class YouTubeFeeds:
             for row in previous.get('videos',[]):
                 if isinstance(row,dict) and valid_video(row,self.now) and matching_video(row['title'],row.get('description'),terms):
                     matched.setdefault(row['id'],row)
-        return {'revision':2,'event_id':event['id'],'terms_hash':fingerprint,
+        candidates=list(matched.values())[:12]
+        semantic_review=None
+        relevance_status='legacy_keyword_match'
+        if self.reviewer:
+            reviewed=self.reviewer.review(event,candidates)
+            relevance_status='measured' if reviewed is not None else 'unavailable'
+            candidates,semantic_review=reviewed if reviewed is not None else ([],None)
+        else:
+            candidates=[v for v in candidates if matching_video(v['title'],v.get('description'),terms)]
+        return {'revision':revision,'event_id':event['id'],'terms_hash':fingerprint,
             'measured_at':self.now.isoformat(),'scope':'matching_event_videos','mode':mode,
             'api_status':status,'window_hours':MATCH['windowHours'],'channels_checked':self.ok,
-            'videos':sorted(matched.values(),key=lambda v:v['published_at'],reverse=True)[:12]}
+            'relevance_status':relevance_status,'semantic_review':semantic_review,
+            'videos':sorted(candidates,key=lambda v:v['published_at'],reverse=True)[:12]}

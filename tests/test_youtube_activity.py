@@ -11,6 +11,41 @@ def feed(channel=CHANNEL):
  return f'''<feed xmlns="http://www.w3.org/2005/Atom" xmlns:yt="http://www.youtube.com/xml/schemas/2015"><yt:channelId>{channel}</yt:channelId><author><uri>https://www.youtube.com/channel/{channel}</uri></author><entry><yt:videoId>AbC_1234567</yt:videoId><title>Milas Belediyesi operasyonunda gözaltı</title><published>{(NOW-timedelta(hours=1)).isoformat()}</published></entry></feed>'''.encode()
 
 class YouTubeTests(unittest.TestCase):
+ def test_semantic_review_accepts_equivalent_wording_and_rejects_same_entity_other_event(self):
+  from youtube_relevance import apply_video_review
+  event={'id':9,'title':'Emrah Kozay tutuklandı','data':{'x_query_terms':['Emrah Kozay',['Çukurova','tutuklama']]}}
+  rows=[{'id':'AbC_1234567','title':'Emrah Kozay cezaevine gönderildi','description':''},
+        {'id':'Def_1234567','title':'Emrah Kozay festival açılışında','description':''}]
+  decisions=[{'id':rows[0]['id'],'related':True,'evidence_quote':'Emrah Kozay cezaevine gönderildi'},
+             {'id':rows[1]['id'],'related':False,'evidence_quote':''}]
+  accepted,review=apply_video_review(event,rows,decisions,NOW)
+  self.assertEqual([v['id'] for v in accepted],['AbC_1234567'])
+  self.assertEqual(review['accepted_ids'],['AbC_1234567'])
+  with self.assertRaises(ValueError):apply_video_review(event,rows,decisions[:1],NOW)
+  decisions[0]['evidence_quote']='invented supporting evidence'
+  with self.assertRaises(ValueError):apply_video_review(event,rows,decisions,NOW)
+
+ def test_broad_feed_candidates_are_reviewed_before_display(self):
+  from youtube_relevance import apply_video_review
+  event={'id':9,'title':'Milas belediyesine operasyon','data':{'x_query_terms':['Milas',['operasyon','gözaltı']]}}
+  reviewer=Mock()
+  reviewer.review.side_effect=lambda event,rows:apply_video_review(event,rows,[{'id':v['id'],'related':True,'evidence_quote':v['title']} for v in rows],NOW)
+  get=Mock(side_effect=lambda url,**kw:Mock(status_code=200,content=feed(kw['params']['channel_id'])))
+  result=YouTubeFeeds(NOW,get,api_key='',reviewer=reviewer).activity(event)
+  self.assertEqual(result['revision'],3)
+  self.assertEqual(result['semantic_review']['accepted_ids'],['AbC_1234567'])
+  self.assertEqual(result['api_status'],'missing_key')
+  self.assertTrue(all(call.args[0].startswith('https://www.youtube.com/feeds/') for call in get.call_args_list))
+
+ def test_incomplete_search_is_partial_and_short_query_does_not_starve_following_events(self):
+  get=Mock(return_value=Mock(status_code=200,json=lambda:{'items':[],'nextPageToken':'more'}))
+  client=YouTubeFeeds(NOW,get,api_key='test-only-key')
+  for i in range(5):
+   _,status=client.search({'title':'Uzun başlık '+str(i)},['Emrah Kozay',['Çukurova','tutuklama']])
+   self.assertEqual(status,'partial')
+  self.assertEqual(get.call_count,5)
+  self.assertTrue(all(c.kwargs['params']['q']=='Emrah Kozay' for c in get.call_args_list))
+
  def test_real_channel_identity_and_fresh_video_required(self):
   self.assertEqual(len(parse_feed(feed(),CHANNEL,NOW)),1)
   self.assertEqual(parse_feed(feed(),CHANNEL,NOW+timedelta(days=4)),[])

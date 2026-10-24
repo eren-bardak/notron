@@ -54,7 +54,7 @@ def main():
     results = []
     x_engagement = XEngagement(db, now)
     x_relevance = XRelevance(db, now)
-    youtube = YouTubeFeeds(now)
+    youtube = YouTubeFeeds(now, db=db)
     paid_x = os.getenv('NOTRON_X_PHASE') != 'deferred'
     for event in events:
         result = score_event(event, links, news_by_id, sides, micro, comments, answers, analysis_by_id.get(int(event['id'])), now)
