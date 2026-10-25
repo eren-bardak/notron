@@ -96,10 +96,10 @@ class SignalsTests(unittest.TestCase):
         self.assertEqual(len(CATEGORIES),6)
         self.assertTrue(balanced_event({'category':'technology','source_count':2,'center_source_count':2}))
         self.assertFalse(balanced_event({'category':'sports','source_count':1}))
-        self.assertFalse(balanced_event({'category':'politics','source_count':2,'center_source_count':2}))
+        self.assertTrue(balanced_event({'category':'politics','source_count':2,'center_source_count':2}))
         self.assertEqual(category_id('economy'),'finance')
         self.assertEqual(category_id(None,'Fenerbahçe şampiyon oldu'),'sports')
-        self.assertFalse(balanced_event({'category':'politics','source_count':3,'left_source_count':2,'center_source_count':1}))
+        self.assertTrue(balanced_event({'category':'politics','source_count':3,'left_source_count':2,'center_source_count':1}))
         self.assertTrue(balanced_event({'source_count':2,'left_source_count':1,'right_source_count':1}))
         articles=[{'source':'Sözcü','url':'https://a.test/1'},{'source':'Sabah','url':'https://b.test/1'}]
         self.assertTrue(balanced_articles(articles,{'sozcu':'left','sabah':'right'}))
@@ -107,3 +107,4 @@ class SignalsTests(unittest.TestCase):
         self.assertFalse(balanced_articles(articles,{'sozcu':'left','sabah':'right'}))
 
 if __name__=='__main__': unittest.main()
+

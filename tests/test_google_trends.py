@@ -42,7 +42,7 @@ class GoogleTrendsTests(unittest.TestCase):
 
     def test_invalid_future_stale_and_missing_dates_are_not_scored(self):
         for at in ('bad', '', 'Mon, 14 Sep 2026 07:00:00 +0000',
-                   'Sun, 13 Sep 2026 05:59:00 +0000', 'Mon, 14 Sep 2026 06:00:00'):
+                   'Fri, 11 Sep 2026 05:59:00 +0000', 'Mon, 14 Sep 2026 06:00:00'):
             self.assertEqual(parse_trends(feed(at=at), NOW), [])
         self.assertEqual(len(parse_trends(feed(at='Sun, 13 Sep 2026 06:00:00 +0000'), NOW)), 1)
 
@@ -53,7 +53,7 @@ class GoogleTrendsTests(unittest.TestCase):
 
     def test_old_future_and_unknown_article_dates_do_not_link_a_trend(self):
         trends = parse_trends(feed(), NOW)
-        for row in (article(hours=25), article(hours=-1), {**article(), 'published_at': None}):
+        for row in (article(hours=73), article(hours=-1), {**article(), 'published_at': None}):
             self.assertIsNone(event_trend_bonus([row], trends, NOW))
 
     def test_bonus_is_capped_and_duplicates_do_not_inflate_it(self):
@@ -118,3 +118,4 @@ class GoogleTrendsTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

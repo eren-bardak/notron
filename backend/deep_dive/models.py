@@ -85,7 +85,7 @@ class Chart(BaseModel):
 
 class StorySection(BaseModel):
     title: str
-    narration: str = Field(max_length=1600)
+    narration: str
     source_urls: list[str]
 
 
@@ -156,3 +156,4 @@ class EventAnalysis(BaseModel):
     data_story: DataStory
     charts: list[Chart] = Field(min_length=0, max_length=2)
     binary_questions: list[BinaryQuestion] = Field(min_length=1, max_length=1)
+

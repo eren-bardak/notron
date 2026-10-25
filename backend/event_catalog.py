@@ -29,7 +29,7 @@ def category_id(value, title=''):
 
 
 def balanced_articles(articles, sides, category="politics", title=""):
-    """Require two publishers; politics additionally requires left and right."""
+    """Require two publishers; cross-spectrum coverage earns a score bonus."""
     groups, seen_urls, seen_titles, publishers = set(), set(), set(), set()
     for article in articles:
         source = normalize(article.get('source'))
@@ -44,11 +44,8 @@ def balanced_articles(articles, sides, category="politics", title=""):
             seen_titles.add(title_key)
         publishers.add(source)
         groups.add(sides.get(source))
-    return len(publishers) >= 2 and (category_id(category, title) != 'politics' or {'left', 'right'} <= groups)
+    return len(publishers) >= 2
 
 
 def balanced_event(event):
-    return ((event.get('source_count') or 0) >= 2
-            and (category_id(event.get('category'), event.get('title', '')) != 'politics'
-                 or ((event.get('left_source_count') or 0) > 0
-                     and (event.get('right_source_count') or 0) > 0)))
+    return (event.get('source_count') or 0) >= 2

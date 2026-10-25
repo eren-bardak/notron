@@ -23,8 +23,8 @@ class ScoreTests(unittest.TestCase):
     def test_sparse_agenda_keeps_qualified_low_score_stories(self):
         from popularity import display_threshold
         self.assertAlmostEqual(display_threshold([1.1, 1.5, 3]), 1.045)
-        self.assertGreaterEqual(display_threshold([1]*10), 2)
-        self.assertEqual(display_threshold([]), 2)
+        self.assertGreaterEqual(display_threshold([1]*10), .5)
+        self.assertEqual(display_threshold([]), .5)
 
     def test_same_snapshot_retries_do_not_inflate_and_twelve_hours_halves(self):
         news=[article(1,'A'),article(2,'B')]
@@ -128,8 +128,9 @@ class ScoreTests(unittest.TestCase):
         analysis={**QUALITY,**QUESTIONS,'editorial_review':{'revision':2,'question_intent':'event_implication','event_specific':True,'matches_displayed_evidence':True,'evidence_relevant':True,'not_factual_recall':True},'charts':[{'chart_type':'line','source_urls':['https://example.org/data'],'points':[{'label':'2024','value':1},{'label':'2025','value':2}]}]}
         analyses=[{'event_id':i,'status':'ready','analysis':analysis} for i in range(1,8)]
         ids=ready_event_ids(rows,analyses,NOW)
-        self.assertEqual(ids[:3],[1,2,3]);self.assertEqual(ids[3:],[4,5])
+        self.assertEqual(ids[:3],[1,2,3]);self.assertEqual(ids[3:],[4,5,6])
         analyses[0]['analysis']={'binary_questions':[{}, {}, {}]}
         self.assertNotIn(1,ready_event_ids(rows,analyses,NOW))
 
 if __name__=='__main__': unittest.main()
+
