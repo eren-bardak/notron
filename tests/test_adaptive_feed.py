@@ -12,14 +12,14 @@ class AdaptiveFeedTests(unittest.TestCase):
         self.assertEqual(display_threshold([.8]),.76)
 
     def test_sparse_and_dense_score_distributions(self):
-        self.assertEqual(display_threshold([]),2)
-        self.assertEqual(display_threshold([float('nan'),float('inf'),0,-1]),2)
+        self.assertEqual(display_threshold([]),.5)
+        self.assertEqual(display_threshold([float('nan'),float('inf'),0,-1]),.5)
         self.assertEqual(display_threshold([4,1]),.95)
         self.assertEqual(display_threshold([20]*38),19)
         values=list(range(38,0,-1))
         threshold=display_threshold(values)
         self.assertGreater(threshold,20)
-        self.assertLess(sum(value>=threshold for value in values),15)
+        self.assertLess(sum(value>=threshold for value in values),20)
         self.assertGreater(sum(value>=threshold for value in values),3)
 
     def test_sparse_category_has_its_own_boundary(self):
@@ -29,3 +29,4 @@ class AdaptiveFeedTests(unittest.TestCase):
         thresholds=event_thresholds(rows,now)
         self.assertGreater(thresholds[1],20)
         self.assertLess(thresholds[100],3)
+

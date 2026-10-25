@@ -5,8 +5,8 @@
   "writer_points": 0.5,
   "half_life_hours": 12,
   "display_threshold": 2,
-  "display_threshold_min": 2,
-  "event_window_hours": 24,
+  "display_threshold_min": 0.5,
+  "event_window_hours": 72,
   "publisher_breadth_points": 0,
   "publisher_breadth_cap": 4,
   "google_trends_max_points": 4,
@@ -18,10 +18,10 @@
     0.5,
     0.25
   ],
-  "display_target_min": 5,
-  "display_target_scale": 1.5,
-  "category_target_min": 2,
-  "category_threshold_min": 0.25,
-  "category_target_scale": 1,
-  "sparse_threshold_min": 0.25
+  "display_target_min": 8,
+  "display_target_scale": 2,
+  "category_target_min": 4,
+  "category_threshold_min": 0.05,
+  "category_target_scale": 1.5,
+  "sparse_threshold_min": 0.05
 }

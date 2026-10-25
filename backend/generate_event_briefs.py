@@ -27,7 +27,7 @@ from country_scope import country_eligible
 from numeric_data_quality import valid_analysis_timeline
 from popularity import POLICY, current_score, event_thresholds, read_all
 
-MAX_BRIEFS = 8  # Cost/output envelope per daily pass, not a publication cap.
+MAX_BRIEFS = 16  # Cost/output envelope per daily pass, not a publication cap.
 
 
 class Brief(BaseModel):
@@ -37,11 +37,11 @@ class Brief(BaseModel):
 
 
 class BriefBackground(StorySection):
-    narration: str = Field(min_length=140, max_length=1600)
+    narration: str
 
 
 class BriefExplanation(StorySection):
-    narration: str = Field(min_length=100, max_length=1600)
+    narration: str
 
 
 class ReviewedBrief(EventAnalysis):
@@ -78,11 +78,9 @@ def select_pending(events, stored, now):
              and current_editorial(row.get('analysis')) and publication_quality(row.get('analysis'))}
     existing_ballots = {int(row['event_id']) for row in stored if isinstance(row.get('analysis'), dict) and row['analysis'].get('binary_questions')}
     eligible = [e for e in events if country_eligible(e) and balanced_event(e) and int(e['id']) not in ready and int(e['id']) not in existing_ballots and (e.get('data') or {}).get('newsworthy') is not False and not (e.get('data') or {}).get('publication_excluded_reason')]
-    thresholds = event_thresholds(eligible, now)
     buckets = defaultdict(deque)
     for event in sorted(eligible, key=lambda e: (-current_score(e, now), int(e['id']))):
-        if current_score(event, now) >= thresholds[int(event['id'])]:
-            buckets[category_id(event.get('category'), event.get('title'))].append(event)
+        buckets[category_id(event.get('category'), event.get('title'))].append(event)
     selected = []
     while buckets and len(selected) < MAX_BRIEFS:
         for key in list(buckets):
@@ -204,8 +202,9 @@ minor crime, unverified transfers or duplicated incidents. Never fill a category
 just to avoid an empty screen. Background must explain specific prior context,
 institutions or supported consequences, distinct from the event summary.
 If the excerpts do not support that context, OMIT the event; do not pad it.
-Write concise neutral Turkish: background 3-5 sentences, 140-800 characters;
-event explanation 2-3 sentences, 100-500 characters. Keep allegations attributed,
+Write concise neutral Turkish, with no character or sentence quotas. Include
+only important, sourced information; do not pad or omit decisive context to fit
+a length target. Long sections can scroll in the app. Keep allegations attributed,
 future targets distinct from observations, and conflicting counts explicitly uncertain.
 Qualitative mode ONLY: no charts, numeric series, key metrics or hidden patterns.
 Exactly one short event-specific interpretive question about plausible consequences
@@ -242,3 +241,4 @@ Avoid rewriting any existing ballot: these events have no ready reviewed analysi
 
 if __name__ == '__main__':
     main()
+
