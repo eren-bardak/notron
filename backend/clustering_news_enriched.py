@@ -587,6 +587,12 @@ def main():
     alone are general, not politics.
     Finance includes economy, markets, employment and business. Magazine is
     celebrity/personal-life reporting; entertainment is film/music/arts/gaming.
+    Use descriptions as well as titles: magazine headlines often omit names.
+    Documented new developments in a public figure's health, death, court cases,
+    safety or explicitly confirmed major life changes belong to magazine when
+    the person is the subject, even when a publisher files the story under general.
+    Judge news value within its category; do not require politics-scale public
+    impact for a sourced magazine story. Routine sightings and rumors still fail.
     x_query_terms: 2 or 3 short Turkish anchor groups identifying this exact
     occurrence, not the headline wording. Use a person/place/organization anchor
     AND a development/context anchor. A group may be a string or up to three
@@ -820,3 +826,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
