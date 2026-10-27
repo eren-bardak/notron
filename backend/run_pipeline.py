@@ -90,6 +90,8 @@ def main():
     db = None
     batch_started = False
     outcome = {'complete': False, 'reason': 'pipeline did not complete'}
+    stage_failures = []
+    paid_blocked = False
     deadline = time.monotonic() + 19 * 60
     try:
         if args.mode == 'economy' and not args.scores_only:
@@ -104,21 +106,35 @@ def main():
                 return 0
             batch_started = True
         for script in steps:
+            if paid_blocked and script in ('generate_event_briefs.py', 'generate_event_deep_dives.py'):
+                continue
             print(f'Running {script}', flush=True)
             remaining = max(1, deadline - time.monotonic()) if args.mode == 'economy' else 9000
             command = [sys.executable, str(BACKEND / script)]
             env['NOTRON_X_PHASE'] = 'deferred'
             if args.scores_only and script == 'generate_event_deep_dives.py':
                 command.append('--validate-only')
-            subprocess.run(command, cwd=BACKEND, env=env, check=True, timeout=remaining)
-        if args.mode == 'economy' and not args.scores_only:
+            try:
+                subprocess.run(command, cwd=BACKEND, env=env, check=True, timeout=remaining)
+            except subprocess.CalledProcessError as error:
+                # Story preparation is independent of publishing/social refresh.
+                # Keep the run incomplete for a same-budget resume, but drain later stages.
+                if script not in ('generate_event_briefs.py', 'generate_event_deep_dives.py') or args.scores_only:
+                    raise
+                stage_failures.append({'stage': script, 'returncode': error.returncode})
+                if error.returncode == 3:
+                    paid_blocked = True
+                print(f'Story stage incomplete; continuing ready stories | stage={script}', flush=True)
+        if args.mode == 'economy' and not args.scores_only and not paid_blocked:
             env['NOTRON_X_PHASE'] = 'measure'
             subprocess.run([sys.executable, str(BACKEND / 'update_event_popularity_v02.py')], cwd=BACKEND,
                            env=env, check=True, timeout=max(1, deadline-time.monotonic()))
         if args.mode == 'economy' and not args.scores_only:
             subprocess.run([sys.executable, str(BACKEND / 'generate_event_deep_dives.py'), '--validate-only'],
                            cwd=BACKEND, env=env, check=True, timeout=max(1, deadline-time.monotonic()))
-        outcome = {'complete': True, 'reason': 'X refresh pass finished within shared budget' if args.x_only else 'selected cross-spectrum stories passed publication checks'}
+        outcome = {'complete': not stage_failures, 'failed_stages': stage_failures, 'reason': 'X refresh pass finished within shared budget' if args.x_only else 'selected cross-spectrum stories passed publication checks'}
+        if stage_failures:
+            outcome['reason'] = 'story_preparation_incomplete_publication_and_social_refresh_finished'
     except Exception as error:
         outcome['reason'] = type(error).__name__
         print(f'Pipeline stopped: {error}', file=sys.stderr)
@@ -132,7 +148,7 @@ def main():
                 print(f'Could not finalize shared batch state: {type(error).__name__}', file=sys.stderr)
         lock.close()
         os.environ.pop('NOTRON_RUN_ID', None)
-    if args.mode == 'economy' and not outcome['complete']:
+    if not outcome['complete']:
         return 1
     print('Pipeline finished successfully.')
     return 0
@@ -140,3 +156,4 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
