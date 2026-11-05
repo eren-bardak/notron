@@ -70,6 +70,7 @@ declare m date := date_trunc('month', now() at time zone 'UTC')::date; s text;
 begin
   perform pg_advisory_xact_lock(6812382216);
   if p_role not in ('development','monitor','release') or length(p_id) not between 1 and 150 then return false; end if;
+  if not pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user), case p_role when 'development' then 'notron_agent_dev' when 'monitor' then 'notron_agent_monitor' else 'notron_agent_release' end, 'member') then return false; end if;
   if not exists(select from notron_agents.control where enabled) then return false; end if;
   if not exists(select from notron_agents.months where month=m and approved and not halted) then return false; end if;
   s := to_char(now() at time zone 'UTC', case when p_role='monitor' then 'YYYY-MM-DD-HH24' else 'YYYY-MM-DD' end);
@@ -122,7 +123,9 @@ returns void language plpgsql security definer set search_path=pg_catalog,notron
 begin
   if octet_length(p_result::text)>16000 then raise exception 'result too large'; end if;
   update notron_agents.runs set finished_at=now(),result=p_result
-    where id=p_run and finished_at is null;
+    where id=p_run and finished_at is null
+      and pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),
+        case role when 'development' then 'notron_agent_dev' when 'monitor' then 'notron_agent_monitor' else 'notron_agent_release' end, 'member');
 end $$;
 
 create or replace function notron_agents.observe()
@@ -149,6 +152,7 @@ begin
   end if;
   perform pg_advisory_xact_lock(6812382217);
   update notron_agents.incidents set resolved_at=now() where resolved_at is null
+    and not exists(select 1 from jsonb_array_elements(p_incidents) where value->>'code'='monitor_evidence_unavailable')
     and fingerprint not in(select value->>'code' from jsonb_array_elements(p_incidents));
   for item in select value from jsonb_array_elements(p_incidents) loop
     if item->>'code' !~ '^[a-z_]{1,80}$' then raise exception 'invalid incident code'; end if;

@@ -46,6 +46,27 @@ class PostgresLedgerTests(unittest.TestCase):
     def begin(self):
         self.assertTrue(self.ledger.call('claim','run','development'))
 
+    def test_monitor_cannot_claim_or_finish_another_role(self):
+        self.begin()
+        self.ledger.db.execute('reset role')
+        self.ledger.db.execute('set role notron_agent_monitor')
+        self.assertFalse(self.ledger.call('claim','intruder','release'))
+        self.assertFalse(self.ledger.call('claim','intruder-dev','development'))
+        self.ledger.call('finish','run',Jsonb({'status':'forged'}))
+        self.assertIsNone(self.admin.execute("select finished_at from notron_agents.runs where id='run'").fetchone()[0])
+        self.assertTrue(self.ledger.call('claim','own','monitor'))
+        self.ledger.call('finish','own',Jsonb({'status':'done'}))
+        self.assertIsNotNone(self.admin.execute("select finished_at from notron_agents.runs where id='own'").fetchone()[0])
+
+    def test_unknown_monitor_evidence_preserves_open_incidents(self):
+        self.ledger.db.execute('reset role')
+        self.ledger.db.execute('set role notron_agent_monitor')
+        self.ledger.call('record_incidents',Jsonb([{'code':'news_run_incomplete'}]))
+        self.ledger.call('record_incidents',Jsonb([{'code':'monitor_evidence_unavailable'}]))
+        self.assertIsNone(self.admin.execute("select resolved_at from notron_agents.incidents where fingerprint='news_run_incomplete'").fetchone()[0])
+        self.ledger.call('record_incidents',Jsonb([]))
+        self.assertIsNotNone(self.admin.execute("select resolved_at from notron_agents.incidents where fingerprint='news_run_incomplete'").fetchone()[0])
+
     def test_duplicate_claim_and_reservation_do_not_authorize_more_calls(self):
         self.begin()
         self.assertFalse(self.ledger.call('claim','run','development'))
