@@ -1,5 +1,9 @@
 # Nötron cloud agent pilot
 
+**Stage-one record.** The subsequent disabled implementation, real adapters,
+transactional ledger and updated setup blockers are in [`agents/README.md`](../agents/README.md).
+The remaining-work list below describes the original preview, not the latest code.
+
 Status: local, disabled pilot. No agents, schedules, services, deployments or
 monthly billing controls have been activated. No change to PR #27.
 Base: `6e064304532bc2cb501f314827f6f236dfc2eb32` (main, verified remotely).

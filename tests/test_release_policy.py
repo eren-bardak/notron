@@ -41,12 +41,29 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn('&& python backend/run_pipeline.py --mode test', cron['buildCommand'])
         self.assertEqual(cron['startCommand'], 'timeout --signal=TERM --kill-after=10s 20m python backend/run_pipeline.py --mode economy')
         for path in (ROOT / '.github/workflows').glob('*.yml'):
-            self.assertNotIn('schedule', read_yaml(path)['on'])
+            if path.name == 'cloud-agents.yml':
+                self.assertEqual(read_yaml(path), read_yaml('agents/workflows/cloud-agents.yml.disabled'))
+            else:
+                self.assertNotIn('schedule', read_yaml(path)['on'])
 
     def test_legacy_paid_maintenance_is_manual_only(self):
         for path in ('background-context', 'card-stories'):
             workflow = read_yaml(f'.github/workflows/{path}.yml')
             self.assertEqual(set(workflow['on']), {'workflow_dispatch'})
+
+    def test_cloud_template_is_inert_and_monitor_has_no_paid_credentials(self):
+        self.assertNotIn('.github/workflows', str(ROOT / 'agents/workflows/cloud-agents.yml.disabled'))
+        workflow = read_yaml('agents/workflows/cloud-agents.yml.disabled')
+        self.assertEqual([s['cron'] for s in workflow['on']['schedule']], ['15 8 * * *','17 * * * *'])
+        monitor = workflow['jobs']['monitor']
+        self.assertIn('NOTRON_AGENTS_ENABLED',monitor['if'])
+        self.assertNotIn('OPENAI',str(monitor))
+        self.assertNotIn('AGENT_GITHUB_TOKEN',str(monitor))
+        self.assertNotIn('run_pipeline.py',str(workflow))
+        for role in ('development','release'):
+            job = workflow['jobs'][role]
+            self.assertIn('NOTRON_AGENTS_ENABLED',job['if'])
+            self.assertTrue(any(step.get('id')=='app-token' for step in job['steps']))
 
 
 if __name__ == '__main__':

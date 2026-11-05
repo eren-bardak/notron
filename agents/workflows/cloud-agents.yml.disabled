@@ -1,0 +1,109 @@
+# INERT TEMPLATE: not loaded by GitHub while outside .github/workflows/*.yml.
+# Activate only after database, cost attestation, App permissions and branch rules.
+name: Nötron bounded cloud agents
+on:
+  schedule:
+    - cron: '15 8 * * *'
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      role:
+        type: choice
+        options: [monitor, development, release]
+        default: monitor
+permissions:
+  contents: read
+concurrency:
+  group: notron-cloud-agent-controller
+  cancel-in-progress: false
+jobs:
+  development:
+    if: >-
+      vars.NOTRON_AGENTS_ENABLED == 'true' && github.repository == 'eren-bardak/notron' &&
+      github.event.repository.private == false && github.ref == 'refs/heads/main' &&
+      (github.event.schedule == '15 8 * * *' || inputs.role == 'development')
+    runs-on: ubuntu-latest
+    environment: notron-agent-development
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r agents/requirements.txt
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: eren-bardak
+          repositories: notron
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: read
+      - name: Issue to bounded PR proposal
+        env:
+          NOTRON_AGENTS_ENABLED: 'true'
+          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+          AGENT_OPENAI_API_KEY: ${{ secrets.AGENT_OPENAI_API_KEY }}
+          AGENT_GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python agents/cloud_agents.py development
+  monitor:
+    if: >-
+      vars.NOTRON_AGENTS_ENABLED == 'true' && github.repository == 'eren-bardak/notron' &&
+      github.event.repository.private == false && github.ref == 'refs/heads/main' &&
+      (github.event.schedule == '17 * * * *' || inputs.role == 'monitor')
+    runs-on: ubuntu-latest
+    environment: notron-agent-monitor
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r agents/requirements.txt
+      - name: Observe existing news and record incidents
+        env:
+          NOTRON_AGENTS_ENABLED: 'true'
+          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+        run: python agents/cloud_agents.py monitor
+  release:
+    if: >-
+      vars.NOTRON_AGENTS_ENABLED == 'true' && vars.NOTRON_AGENT_RELEASE_ENABLED == 'true' &&
+      github.repository == 'eren-bardak/notron' && github.event.repository.private == false &&
+      github.ref == 'refs/heads/main' &&
+      (github.event.schedule == '17 * * * *' || inputs.role == 'release')
+    runs-on: ubuntu-latest
+    environment: notron-agent-release
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r agents/requirements.txt
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: eren-bardak
+          repositories: notron
+          permission-contents: write
+          permission-pull-requests: write
+          permission-checks: read
+          permission-administration: read
+      - name: Merge narrowly eligible changes after exact-head checks
+        env:
+          NOTRON_AGENTS_ENABLED: 'true'
+          NOTRON_AGENT_RELEASE_ENABLED: 'true'
+          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+          AGENT_BOT_LOGIN: ${{ vars.AGENT_BOT_LOGIN }}
+          AGENT_GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python agents/cloud_agents.py release
