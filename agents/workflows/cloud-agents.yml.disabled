@@ -56,7 +56,7 @@ jobs:
       github.event.repository.private == false && github.ref == 'refs/heads/main' &&
       (github.event.schedule == '17 * * * *' || inputs.role == 'monitor')
     runs-on: ubuntu-latest
-    environment: notron-agent-monitor
+    environment: notron-agent-monitoring
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4

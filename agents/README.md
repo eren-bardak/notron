@@ -151,7 +151,8 @@ disabled, this pilot does not cause additional Render builds at all.
    and the test build command is effective. Repo auto-merge can remain disabled:
    the narrow controller calls the protected merge endpoint explicitly.
 6. GitHub environment secrets: dev `AGENT_DATABASE_URL`, `AGENT_OPENAI_API_KEY`,
-   `APP_PRIVATE_KEY`; monitor only its `AGENT_DATABASE_URL`; release its restricted
+   `APP_PRIVATE_KEY`; monitor uses the existing `notron-agent-monitoring`
+   environment with only its `AGENT_DATABASE_URL`; release its restricted
    `AGENT_DATABASE_URL` and `APP_PRIVATE_KEY`. Set each App's `APP_CLIENT_ID` environment variable. Set
    release `AGENT_BOT_LOGIN` to the verified DEVELOPMENT App login, not the release
    App login. Repo variables `NOTRON_AGENTS_ENABLED` and
@@ -168,6 +169,13 @@ disabled, this pilot does not cause additional Render builds at all.
 Kill switches: clear repository flags and set database `control.enabled=false`.
 These block new work; a request already sent may still be billed. Leave its
 reservation intact and inspect before resuming.
+
+Activation security hold: a downloaded development App private-key copy remains
+in a read-only browser area and could not be removed. Before enabling agents,
+assess who can access that copy, its retention and whether the key remains valid;
+resolve its disposition through an explicitly authorized secure process. The
+user instructed that the older development App key must not be deleted. Neither
+development App key is changed or deleted by this workflow/environment fix.
 
 ## Local tests
 

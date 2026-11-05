@@ -56,6 +56,7 @@ class ReleasePolicyTests(unittest.TestCase):
         workflow = read_yaml('agents/workflows/cloud-agents.yml.disabled')
         self.assertEqual([s['cron'] for s in workflow['on']['schedule']], ['15 8 * * *','17 * * * *'])
         monitor = workflow['jobs']['monitor']
+        self.assertEqual(monitor['environment'], 'notron-agent-monitoring')
         self.assertIn('NOTRON_AGENTS_ENABLED',monitor['if'])
         self.assertNotIn('OPENAI',str(monitor))
         self.assertNotIn('AGENT_GITHUB_TOKEN',str(monitor))
