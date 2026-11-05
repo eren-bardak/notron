@@ -13,6 +13,40 @@ import cloud_agents as a
 
 
 class CloudAgentTests(unittest.TestCase):
+    def test_tls_accepts_explicit_secure_uri(self):
+        for scheme in ('postgres','postgresql'):
+            for mode in ('require','verify-full'):
+                dsn=f'{scheme}://test:fake%40password@db.example.invalid/db?sslmode={mode}'
+                self.assertEqual(a.validate_database_tls(dsn),dsn)
+
+    def test_tls_rejects_duplicate_ambiguous_or_insecure_configuration(self):
+        prefix='postgresql://test:fake-password@db.example.invalid/db?'
+        queries=('sslmode=require&sslmode=disable','sslmode=disable&sslmode=require',
+                 'sslmode=require&sslmode=require','sslmode=require&%73slmode=disable',
+                 'application_name=sslmode%3Drequire&sslmode=disable',
+                 'sslmode=disable','sslmode=prefer','sslmode=',
+                 'sslmode=require&service=other','sslmode=require&host=%2Ftmp',
+                 'sslmode=require&dbname=other','sslmode=require&hostaddr=127.0.0.1',
+                 'sslmode=require&application_name=a&application_name=b')
+        invalid=[prefix+q for q in queries]+[
+            prefix.rstrip('?'), 'host=example sslmode=require sslmode=disable',
+            'postgresql://%2Ftmp/db?sslmode=require',
+            'postgresql:///db?sslmode=require', prefix+'sslmode=require#fragment']
+        for dsn in invalid:
+            with self.subTest(dsn=dsn):
+                with self.assertRaises(a.Stopped) as error:
+                    a.validate_database_tls(dsn)
+                self.assertNotIn('fake-password',str(error.exception))
+
+    def test_tls_failure_stops_before_connecting_or_calling_providers(self):
+        with patch.dict(os.environ,{'NOTRON_AGENTS_ENABLED':'true','GITHUB_RUN_ID':'123',
+             'AGENT_DATABASE_URL':'postgresql://host/db?sslmode=require&sslmode=disable'}), \
+             patch.object(sys,'argv',['cloud_agents','development']), \
+             patch.object(a,'Ledger') as ledger, patch.object(a,'HTTP') as http:
+            self.assertEqual(a.main(),1)
+        ledger.assert_not_called()
+        http.assert_not_called()
+
     def setUp(self):
         self.api = Mock()
         self.ledger = Mock()

@@ -131,6 +131,10 @@ disabled, this pilot does not cause additional Render builds at all.
 2. Provision separate LOGIN credentials inheriting only `notron_agent_dev`,
    `notron_agent_monitor` or `notron_agent_release`. Audit inherited PUBLIC privileges on the existing
    database. Require TLS and store separate DSNs in separate GitHub environments.
+   Use a TCP `postgres://` or `postgresql://` URI with exactly one explicit
+   `sslmode=require` or `sslmode=verify-full`. Duplicate query parameters,
+   keyword/service DSNs, Unix sockets and query-based target overrides are
+   rejected before any connection or provider call. Validation errors omit DSNs.
    Do not use `postgres`, Supabase `service_role`, or an admin DB password.
 3. Verify all attributable costs, a dedicated OpenAI project/key, hard limits
    and rate access. The key goes only in `notron-agent-development`. Approve the

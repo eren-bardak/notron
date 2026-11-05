@@ -11,8 +11,10 @@ import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 import psycopg
+from psycopg.conninfo import conninfo_to_dict
 from psycopg.types.json import Jsonb
 import requests
 
@@ -30,6 +32,37 @@ REQUIRED_CHECKS = {CHECK, 'Agent ledger integration'}
 
 class Stopped(RuntimeError):
     pass
+
+
+def validate_database_tls(dsn):
+    """Require one explicit TLS policy in a PostgreSQL TCP URI.
+
+    Keyword/service DSNs and URI overrides are deliberately unsupported: they
+    can hide duplicate options or change the connection target after validation.
+    Never include a DSN or parser exception (possibly containing a password) in
+    the error returned to the caller.
+    """
+    try:
+        uri = urlsplit(dsn)
+        if uri.scheme not in ('postgres', 'postgresql') or not uri.hostname or uri.fragment:
+            raise ValueError()
+        pairs = parse_qsl(uri.query, keep_blank_values=True, strict_parsing=True, errors='strict')
+        keys = [key for key, _ in pairs]
+        if len(keys) != len(set(keys)):
+            raise ValueError()
+        if set(keys) & {'service', 'servicefile', 'host', 'hostaddr', 'dbname'}:
+            raise ValueError()
+        host = unquote(uri.hostname, errors='strict')
+        if '/' in host or ',' in host:
+            raise ValueError()
+        options = conninfo_to_dict(dsn)
+        if dict(pairs).get('sslmode') not in ('require', 'verify-full'):
+            raise ValueError()
+        if options.get('sslmode') != dict(pairs)['sslmode']:
+            raise ValueError()
+    except (ValueError, TypeError, UnicodeError, psycopg.Error):
+        raise Stopped('Invalid database TLS configuration') from None
+    return dsn
 
 
 class HTTP:
@@ -326,9 +359,7 @@ def main():
         if args.role=='release' and os.getenv('NOTRON_AGENT_RELEASE_ENABLED')!='true':
             print(json.dumps({'status':'release_disabled'}))
             return 0
-        dsn = os.environ['AGENT_DATABASE_URL']
-        if 'sslmode=require' not in dsn and 'sslmode=verify-full' not in dsn:
-            raise Stopped('TLS required for agent database')
+        dsn = validate_database_tls(os.environ['AGENT_DATABASE_URL'])
         ledger = Ledger(dsn)
         if args.role!='release' and not ledger.call('claim',run_id,args.role):
             print(json.dumps({'status':'not_claimed'}))
