@@ -12,7 +12,7 @@ from psycopg.conninfo import conninfo_to_dict
 from psycopg.types.json import Jsonb
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from cloud_agents import Ledger
+from ledger import Ledger
 
 DSN=os.getenv('AGENT_TEST_DATABASE_URL')
 
@@ -98,6 +98,7 @@ class PostgresLedgerTests(unittest.TestCase):
         self.assertTrue(self.ledger.call('reserve','run',str(uuid.uuid4())))
         second=Ledger(DSN)
         try:
+            second.db.execute('set role notron_agent_dev')
             self.assertFalse(second.call('reserve','run',str(uuid.uuid4())))
         finally:
             second.close()
@@ -137,6 +138,30 @@ class PostgresLedgerTests(unittest.TestCase):
         self.admin.execute('update notron_agents.months set approved=false')
         self.assertFalse(self.ledger.call('claim','dev','development'))
         self.assertFalse(self.ledger.call('claim','rel','release'))
+
+    def test_unapproved_month_blocks_actual_release_role(self):
+        self.ledger.db.execute('reset role')
+        self.ledger.db.execute('set role notron_agent_release')
+        self.admin.execute('update notron_agents.months set approved=false')
+        self.assertFalse(self.ledger.call('claim','release-test','release'))
+        self.admin.execute('update notron_agents.months set approved=true')
+        self.assertTrue(self.ledger.call('claim','release-test','release'))
+
+    def test_rolled_back_reservation_leaves_no_charge_or_lock(self):
+        self.begin()
+        call=str(uuid.uuid4())
+        with self.assertRaisesRegex(RuntimeError, 'abort local transaction'):
+            with self.ledger.db.transaction():
+                self.assertTrue(self.ledger.call('reserve','run',call))
+                self.assertTrue(self.ledger.call('settle','run',call,100))
+                raise RuntimeError('abort local transaction')
+        self.assertEqual(self.admin.execute('select count(*) from notron_agents.calls').fetchone()[0],0)
+        second=Ledger(DSN)
+        try:
+            second.db.execute('set role notron_agent_dev')
+            self.assertTrue(second.call('reserve','run',call))
+        finally:
+            second.close()
 
     def test_release_has_one_daily_slot_and_cannot_spend_model_money(self):
         self.ledger.db.execute('reset role')

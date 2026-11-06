@@ -1,6 +1,18 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+# Resource guard, not a display-length or editorial target.
+MAX_QUESTION_CHARACTERS = 1000
+MAX_ANSWER_LABEL_CHARACTERS = 160
+
+
+def complete_question_text(text):
+    return (isinstance(text, str) and 5 <= len(text.strip()) <= MAX_QUESTION_CHARACTERS
+            and text.strip().endswith("?") and text.count("?") == 1
+            and "…" not in text and "..." not in text
+            and not text.strip().endswith(("öncelikli ol?", "ağır bas?", "tercih ed?")))
 
 
 class Evidence(BaseModel):
@@ -107,18 +119,25 @@ class DataStory(BaseModel):
 
 
 class AnswerLabels(BaseModel):
-    yes: str = Field(min_length=1, max_length=24)
-    no: str = Field(min_length=1, max_length=24)
-    unsure: str = Field(min_length=1, max_length=24)
+    yes: str = Field(min_length=1, max_length=MAX_ANSWER_LABEL_CHARACTERS)
+    no: str = Field(min_length=1, max_length=MAX_ANSWER_LABEL_CHARACTERS)
+    unsure: str = Field(min_length=1, max_length=MAX_ANSWER_LABEL_CHARACTERS)
 
 
 class BinaryQuestion(BaseModel):
     id: str
-    question: str = Field(min_length=5, max_length=100)
+    question: str = Field(min_length=5, max_length=MAX_QUESTION_CHARACTERS)
     data_anchor: str = Field(min_length=1, max_length=180)
     why_it_matters: str
     question_type: Literal["metric", "event"]
     choice_labels: AnswerLabels
+
+    @field_validator("question")
+    @classmethod
+    def require_complete_question(cls, value):
+        if not complete_question_text(value):
+            raise ValueError("Question must be complete and end in ?; never truncate words or the sentence.")
+        return value
 
 
 class EditorialReview(BaseModel):
@@ -157,3 +176,23 @@ class EventAnalysis(BaseModel):
     charts: list[Chart] = Field(min_length=0, max_length=2)
     binary_questions: list[BinaryQuestion] = Field(min_length=1, max_length=1)
 
+
+
+class QuestionRepairInput(BinaryQuestion):
+    """Saved copy for editorial repair only; never use as a generated-output schema."""
+
+    @field_validator("question")
+    @classmethod
+    def require_complete_question(cls, value):
+        # Retain the bounded string and every other field's validation. The editor
+        # must see the exact incomplete text, not an invented placeholder/ending.
+        return value
+
+
+class QuestionReviewInput(BaseModel):
+    binary_questions: list[QuestionRepairInput] = Field(min_length=1, max_length=1)
+
+
+class QuestionRepairDraft(EventAnalysis):
+    """Read-only legacy input; replacement questions must pass EventAnalysis again."""
+    binary_questions: list[QuestionRepairInput] = Field(min_length=1, max_length=1)

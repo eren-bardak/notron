@@ -9,7 +9,7 @@ from openai import OpenAI
 from supabase import create_client
 from deep_dive.cover_question import refresh_cover_questions
 from deep_dive.analyze_event import review_questions, complete_question_text
-from deep_dive.models import EventAnalysis, ResearchBundle
+from deep_dive.models import EventAnalysis, ResearchBundle, QuestionRepairDraft
 from pipeline_visibility import ready_event_ids
 from popularity import read_all
 
@@ -28,9 +28,11 @@ def refresh_tradeoffs(db, client, model, ids):
         for attempt in range(2):
             try:
                 research = ResearchBundle.model_validate(row["research"])
-                draft = {**original, "question_revision": 3, "binary_questions": [q for q in original.get("binary_questions", []) if q.get("question_type") == "metric"]}
-                analysis = EventAnalysis.model_validate(draft)
+                draft = {**original, "question_revision": 3, "binary_questions": [q for q in original.get("binary_questions", []) if q.get("question_type") in ("metric", "event")]}
+                analysis = QuestionRepairDraft.model_validate(draft)
                 questions = review_questions(client, model, research, analysis.binary_questions, analysis.charts, analysis=analysis, feedback=feedback)
+                analysis.binary_questions = questions
+                analysis = EventAnalysis.model_validate(analysis.model_dump(mode="json"))
                 at = datetime.now(timezone.utc).isoformat()
                 updated = {**original, "question_revision": 3, "binary_questions": [q.model_dump(mode="json") for q in questions],
                            "editorial_review": analysis.editorial_review.model_dump(mode="json"), "generated_at": at}

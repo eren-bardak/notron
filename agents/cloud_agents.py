@@ -17,6 +17,7 @@ import psycopg
 from psycopg.conninfo import conninfo_to_dict
 from psycopg.types.json import Jsonb
 import requests
+from ledger import Ledger, Stopped
 
 REPO = 'eren-bardak/notron'
 MODEL = 'gpt-6.1-terra'
@@ -28,10 +29,6 @@ MAX_OUTPUT_TOKENS = 6000
 MAX_CALLS = 2
 CHECK = 'Offline checks (no OpenAI calls)'
 REQUIRED_CHECKS = {CHECK, 'Agent ledger integration'}
-
-
-class Stopped(RuntimeError):
-    pass
 
 
 def validate_database_tls(dsn):
@@ -87,23 +84,6 @@ class HTTP:
                     raise Stopped('provider response too large')
                 parts.append(chunk)
             return json.loads(b''.join(parts))
-
-
-class Ledger:
-    def __init__(self, dsn):
-        # Require TLS in cloud; local integration tests explicitly use sslmode=disable.
-        self.db = psycopg.connect(dsn, connect_timeout=10, autocommit=True)
-        self.db.execute("set statement_timeout='15s'")
-        self.db.execute("set lock_timeout='5s'")
-
-    def call(self, function, *args):
-        if function not in {'claim', 'reserve', 'settle', 'finish', 'observe', 'record_incidents'}:
-            raise Stopped('unknown ledger operation')
-        placeholders = ','.join(['%s']*len(args))
-        return self.db.execute(f'SELECT notron_agents.{function}({placeholders})', args).fetchone()[0]
-
-    def close(self):
-        self.db.close()
 
 
 def charge(usage):

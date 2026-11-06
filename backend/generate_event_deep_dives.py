@@ -12,7 +12,7 @@ from deep_dive.research_event import load_event, research_event
 from deep_dive.save_analysis import save_analysis
 from deep_dive.cover_question import refresh_cover_questions
 from deep_dive.background_context import refresh_background_contexts
-from deep_dive.models import EventAnalysis, ResearchBundle
+from deep_dive.models import EventAnalysis, ResearchBundle, QuestionRepairDraft
 from event_images import refresh_event_covers
 from numeric_data_quality import valid_analysis_timeline, has_event_evidence
 from pipeline_visibility import enforce_previous_year_gate, publish_ready_events, valid_questions, valid_numeric_data
@@ -149,10 +149,11 @@ def main() -> None:
                     and old_analysis.get("question_revision") == 3 and valid_questions(old_analysis)
                     and valid_analysis_timeline(old_analysis, [series.model_dump(mode="json") for series in research.numeric_series])):
                 # A wording repair needs no second data-story generation or web search.
-                analysis = EventAnalysis.model_validate(old_analysis)
+                analysis = QuestionRepairDraft.model_validate(old_analysis)
                 question_only = True
                 analysis.binary_questions = review_questions(client, model, research, analysis.binary_questions, analysis.charts, analysis=analysis)
                 analysis.generated_at = datetime.now(timezone.utc).isoformat()
+                analysis = EventAnalysis.model_validate(analysis.model_dump(mode="json"))
             else:
                 analysis = analyze_event(client, model, research)
             if analysis.event_id != event_id:
