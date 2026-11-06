@@ -1,10 +1,13 @@
-from .models import EventAnalysis, ResearchBundle
+from .models import EventAnalysis, ResearchBundle, complete_question_text
 from numeric_data_quality import valid_analysis_timeline
 from editorial_quality import current_editorial, publication_quality
 
 
 def save_analysis(db, research: ResearchBundle, analysis: EventAnalysis, preserve_card_fields=False) -> None:
     """Keep the newest research and cinematic analysis for an event."""
+    # Check again before any database call: model instances can be mutated after parsing.
+    if not analysis.binary_questions or not all(complete_question_text(q.question) for q in analysis.binary_questions):
+        raise ValueError("Refusing to save an incomplete voting question")
     numeric_data = [
         series.model_dump(mode="json")
         for series in research.numeric_series

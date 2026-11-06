@@ -21,6 +21,7 @@ from supabase import create_client
 from daily_budget import BudgetError, budget_client
 from deep_dive.models import EventAnalysis, ResearchBundle, Evidence, StorySection, EditorialReview, PublicationReview
 from deep_dive.save_analysis import save_analysis
+from deep_dive.question_style import ANSWER_LABEL_RULES
 from editorial_quality import current_editorial, publication_quality, RESEARCH_REVISION
 from event_catalog import balanced_event, category_id
 from country_scope import country_eligible
@@ -243,15 +244,16 @@ only important, sourced information; do not pad or omit decisive context to fit
 a length target. Long sections can scroll in the app. Keep allegations attributed,
 future targets distinct from observations, and conflicting counts explicitly uncertain.
 Qualitative mode ONLY: no charts, numeric series, key metrics or hidden patterns.
-Exactly one short event-specific interpretive question about plausible consequences
-or conditional outlook; no factual quiz, guilt poll, value judgement or "ne yapılmalı".
-Use balanced short choices and a genuine uncertainty option. Supply editorial_review
+Exactly one concise, complete Turkish question ending in ?. Never chop words or
+the sentence ending to fit a length target. Ask about event-specific plausible
+consequences or conditional outlook; no factual quiz, guilt poll, value judgement or "ne yapılmalı".
+Use balanced, complete natural choices and a genuine uncertainty option. Supply editorial_review
 revision2 and publication_review revision1 with an evidenced newsworthiness reason;
 set true checks only if they actually pass. generated_at must use the supplied time.
 Select evidence_article_ids from the supplied article IDs. The backend copies
 their original excerpts, publishers, URLs and dates without retyping. Cite only supplied URLs, at least two
 publisher domains. Do not add facts or historical dates absent from the excerpts.
-Avoid rewriting any existing ballot: these events have no ready reviewed analysis.'''},
+Avoid rewriting any existing ballot: these events have no ready reviewed analysis.''' + ANSWER_LABEL_RULES},
         {'role':'user','content':json.dumps({'now':now.isoformat(),'events':[payload]},ensure_ascii=False)}],
         text_format=Briefs).output_parsed
     if result is None:

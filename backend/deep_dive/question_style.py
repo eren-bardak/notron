@@ -1,5 +1,16 @@
 """Shared editorial policy for newly generated event questions."""
 
+from .models import MAX_ANSWER_LABEL_CHARACTERS
+
+ANSWER_LABEL_RULES = f"""
+Every answer label must be complete, natural Turkish and answer the exact question.
+Prefer concise labels, but preserve the whole meaning instead of fitting an
+editorial character quota. Never cut a word or phrase to shorten a label.
+The technical safety ceiling is {MAX_ANSWER_LABEL_CHARACTERS} characters per label.
+If exceeded, rewrite a complete label; never truncate it. Keep legitimate short
+labels when they already answer the question clearly.
+"""
+
 CONTESTED_QUESTION_RULES = """
 Choose the sharpest genuine disagreement that THIS event's sourced evidence
 can support. Make it specific, consequential and debatable, not a bland moral
@@ -18,7 +29,7 @@ Offer two distinct, defensible interpretations/outlooks with parallel, neutral
 labels and a third uncertainty or mixed/context-dependent answer. If two effects
 can coexist, do not pretend they are mutually exclusive: ask about the dominant
 effect under the same stated condition, and allow a mixed/uncertain answer.
-Each label must answer the exact question and remain at most 24 characters.
+Each label must answer the exact question with complete, natural wording.
 Evidence anchors must state what is known and what remains uncertain.
 
 For example, ONLY if the supplied evidence supports both readings:
@@ -39,4 +50,4 @@ Set non_normative=true only when the question asks for no ought/should judgment.
 Set substantive_disagreement=true only when both readings are defensible from
 the event's evidence and their difference matters. Explain the tension and its
 evidence limits in the review reason or tradeoff_basis.
-"""
+""" + ANSWER_LABEL_RULES
