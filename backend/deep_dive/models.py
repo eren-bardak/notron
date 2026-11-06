@@ -176,3 +176,23 @@ class EventAnalysis(BaseModel):
     charts: list[Chart] = Field(min_length=0, max_length=2)
     binary_questions: list[BinaryQuestion] = Field(min_length=1, max_length=1)
 
+
+
+class QuestionRepairInput(BinaryQuestion):
+    """Saved copy for editorial repair only; never use as a generated-output schema."""
+
+    @field_validator("question")
+    @classmethod
+    def require_complete_question(cls, value):
+        # Retain the bounded string and every other field's validation. The editor
+        # must see the exact incomplete text, not an invented placeholder/ending.
+        return value
+
+
+class QuestionReviewInput(BaseModel):
+    binary_questions: list[QuestionRepairInput] = Field(min_length=1, max_length=1)
+
+
+class QuestionRepairDraft(EventAnalysis):
+    """Read-only legacy input; replacement questions must pass EventAnalysis again."""
+    binary_questions: list[QuestionRepairInput] = Field(min_length=1, max_length=1)
