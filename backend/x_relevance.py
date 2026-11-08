@@ -32,7 +32,71 @@ def related_likes_points(likes):
     return round(min(8, 2 * math.log10(1 + likes / 100)), 4)
 
 
+class InvalidXSignal(ValueError):
+    """An event-local cache cannot safely be used for this event."""
+
+
+def validate_signal(event, signal):
+    """Validate provenance and cached input before cache hits or paid work.
+
+    Only data validation errors are converted. Infrastructure/programming errors
+    remain fatal rather than making an unhealthy batch look successful.
+    """
+    try:
+        if not isinstance(signal, dict) or signal.get('status') != 'measured':
+            raise ValueError('invalid_signal_status')
+        terms = event.get('terms') or (event.get('data') or {}).get('x_query_terms')
+        query = next((q for broad in (False, True)
+                      if (q := build_query(terms, broad=broad))
+                      and signal.get('query_hash') == query_hash(q)), None)
+        if not query:
+            raise ValueError('query_mismatch')
+        posts = signal.get('posts')
+        if not isinstance(posts, list):
+            raise ValueError('invalid_posts')
+        for key, minimum in (('pages_fetched', 0), ('requested_pages', 1)):
+            if key in signal and (type(signal[key]) is not int or not minimum <= signal[key] <= 3):
+                raise ValueError('invalid_pagination_metadata')
+        if 'search_complete' in signal and type(signal['search_complete']) is not bool:
+            raise ValueError('invalid_pagination_metadata')
+        prior = signal.get('semantic_review')
+        if prior is not None and not isinstance(prior, dict):
+            raise ValueError('invalid_semantic_review')
+        start, end, measured = (parse_time(signal.get(key))
+                               for key in ('window_start', 'window_end', 'measured_at'))
+        if not start or not end or not measured or not start < end <= measured:
+            raise ValueError('invalid_sample_window')
+        rows = [{'id': p['id'], 'text': p.get('text', ''), 'created_at': p['created_at'],
+                 'public_metrics': {'like_count': p['likes'], 'retweet_count': p['reposts'],
+                                    'reply_count': p['replies'], 'quote_count': p['quotes'],
+                                    **({'impression_count': p['impressions']}
+                                       if p.get('impressions') is not None else {})}}
+                for p in posts]
+        parse_engagement({'data': rows, 'meta': {'result_count': len(rows)}},
+                         query, start, end, measured, limit=MAX_SAMPLE)
+        return query
+    except (ValueError, TypeError, KeyError, AttributeError) as error:
+        raise InvalidXSignal(str(error)) from error
+
+
+def reject_signal(event, reason):
+    print('X_SIGNAL_REJECTED ' + json.dumps({'event_id': event.get('id'),
+          'reason': reason}, ensure_ascii=False))
+
+
+def usable_cache(event, signal):
+    if signal is None:
+        return None
+    try:
+        validate_signal(event, signal)
+    except InvalidXSignal as error:
+        reject_signal(event, str(error))
+        return None
+    return signal
+
+
 def apply_review(event, signal, decisions, now, reviewer='gpt-6-luna'):
+    query = validate_signal(event, signal)
     posts = {post['id']: post for post in signal['posts']}
     decisions = [d.model_dump() if isinstance(d, BaseModel) else d for d in decisions]
     ids = [d['id'] for d in decisions]
@@ -48,10 +112,6 @@ def apply_review(event, signal, decisions, now, reviewer='gpt-6-luna'):
             if len(quote) < 8 or quote not in post.get('text', ''):
                 raise ValueError('Acceptance requires an exact supporting quote')
             accepted.append(post)
-    terms = event.get('terms') or (event.get('data') or {}).get('x_query_terms')
-    query = next((q for broad in (False, True) if (q := build_query(terms, broad=broad)) and signal.get('query_hash') == query_hash(q)), None)
-    if not query or signal.get('query_hash') != query_hash(query):
-        raise ValueError('Review query does not belong to this event')
     rows = [{'id': p['id'], 'text': p.get('text', ''), 'created_at': p['created_at'],
              'public_metrics': {'like_count': p['likes'], 'retweet_count': p['reposts'],
                                 'reply_count': p['replies'], 'quote_count': p['quotes'],
@@ -81,6 +141,8 @@ class XRelevance:
     def review(self, event, signal, articles=None, allow_paid=True):
         if not isinstance(signal, dict) or signal.get('status') != 'measured':
             return None
+        if usable_cache(event, signal) is None:
+            return None
         prior = signal.get('semantic_review') or {}
         if prior.get('revision') == 1 and prior.get('event_id') == event['id'] and prior.get('input_hash') == review_hash(event, signal):
             return signal
@@ -100,8 +162,12 @@ class XRelevance:
                        {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False)}], text_format=EventPostReview).output_parsed
             if review is None:
                 raise ValueError('Missing relevance review')
-            return apply_review(event, signal, review.decisions, self.now)
         except Exception as error:
             self.disabled = True
             print('X relevance review unavailable; unreviewed posts earn no points: ' + type(error).__name__)
+            return None
+        try:
+            return apply_review(event, signal, review.decisions, self.now)
+        except (ValueError, TypeError, KeyError, AttributeError):
+            reject_signal(event, 'invalid_relevance_decisions')
             return None

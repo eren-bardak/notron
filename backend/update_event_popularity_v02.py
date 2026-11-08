@@ -9,7 +9,7 @@ from popularity import POLICY, normalize, parse_time, read_all, score_event, sou
 from google_trends import event_trend_bonus, fetch_trends
 from event_catalog import balanced_event, category_id
 from x_engagement import XEngagement, combined_x_points
-from x_relevance import XRelevance
+from x_relevance import XRelevance, usable_cache
 from x_authors import attach_authors
 from youtube_activity import YouTubeFeeds
 from collections import defaultdict, deque
@@ -83,26 +83,29 @@ def main():
             'right_source_count':len(result['side_sources']['right'])})
         metadata = event.get('data') if isinstance(event.get('data'), dict) else {}
         terms = metadata.get('x_query_terms')
+        # Keep rejected raw cache for diagnosis, but never reuse it or award credit.
+        score_signal = usable_cache(event, metadata.get('x_engagement_signal'))
         worthwhile = metadata.get('newsworthy') is not False and not metadata.get('publication_excluded_reason')
         analysis = analysis_by_id.get(int(event['id']))
         reviewed = current_editorial(analysis) and publication_quality(analysis)
-        engagement = x_engagement.measure(terms, metadata.get('x_engagement_signal'), metadata.get('x_search_status')) if balanced and worthwhile and paid_x and reviewed else None
+        engagement = x_engagement.measure(terms, score_signal, metadata.get('x_search_status')) if balanced and worthwhile and paid_x and reviewed else None
         if balanced and worthwhile and paid_x and reviewed and x_engagement.last_attempt is not None:
             metadata = {**metadata, 'x_search_status': x_engagement.last_attempt}
-        engagement = engagement or metadata.get('x_engagement_signal')
+        engagement = engagement or score_signal
         if engagement is not None:
             accepted = x_relevance.review(event, engagement, articles_by_event[int(event['id'])], allow_paid=paid_x and balanced and worthwhile and reviewed)
             if accepted is not None:
                 if paid_x:
-                    accepted = attach_authors(accepted, metadata.get('x_engagement_signal'))
+                    accepted = attach_authors(accepted, score_signal)
                 metadata = {**metadata, 'x_engagement_signal':accepted}
+                score_signal = accepted
         if balanced and worthwhile and reviewed:
             videos = youtube.activity(event, metadata.get('youtube_activity'))
             if videos is not None:
                 metadata = {**metadata, 'youtube_activity': videos}
         # The web feed replaces this decayed snapshot contribution with current
         # approved participation and the credit ledger, without counting twice.
-        x_points = combined_x_points(metadata.get('x_signal'), metadata.get('x_engagement_signal'), terms, now) if balanced and worthwhile else 0
+        x_points = combined_x_points(metadata.get('x_signal'), score_signal, terms, now) if balanced and worthwhile else 0
         metadata = {**metadata, 'popularity_components': {
             'revision': 1, 'community': result['community_score'], 'x': x_points}}
         result['catalog_data'] = metadata
