@@ -80,7 +80,7 @@ class PipelineModeTests(unittest.TestCase):
     def test_economy_caps_override_larger_existing_settings(self):
         with patch.dict(os.environ, {"MAX_DEEP_DIVES_PER_RUN": "20", "MAX_CLUSTER_EVENTS": "20"}):
             env = run_pipeline.pipeline_environment("economy")
-        self.assertEqual(env["MAX_DEEP_DIVES_PER_RUN"], "3")
+        self.assertEqual(env["MAX_DEEP_DIVES_PER_RUN"], "70")
         self.assertNotIn("MAX_CLUSTER_EVENTS", env)
         self.assertEqual(env["MAX_CLUSTER_ARTICLES"], "300")
         self.assertEqual(env["NOTRON_PIPELINE_MODE"], "economy")
@@ -201,6 +201,38 @@ class PipelineModeTests(unittest.TestCase):
              patch.object(research_pipeline,'save_analysis') as save, \
              patch.object(research_pipeline,'publish_ready_events',return_value=[2,3,4]):
             research_pipeline.main()
-        self.assertEqual(select.call_args.kwargs['p_event_ids'], [4,3,2])
+        self.assertEqual(select.call_args.kwargs['p_event_ids'], [4,3,2,1])
         self.assertEqual([call.args[2] for call in research.call_args_list], [4,3,2])
+        self.assertEqual(save.call_count, 3)
+
+    def test_retry_keeps_frozen_story_displaced_from_new_top_ten(self):
+        now = datetime.now(timezone.utc).isoformat()
+        events = [{'id':i,'data':COUNTRY_DATA,'created_at':now,'source_count':i+1,'left_source_count':1,'right_source_count':1,'article_count':i*3,
+                   'popularity_score':100,'popularity_updated_at':now} for i in range(1,12)]
+        db = Mock()
+        def table(name):
+            query = Mock()
+            for method in ('select','gte','lte','order','in_','limit'):
+                getattr(query, method).return_value = query
+            query.execute.return_value = SimpleNamespace(data=events if name=='events' else [])
+            return query
+        db.table.side_effect = table
+        with patch.dict(os.environ, {'SUPABASE_URL':'test','SUPABASE_KEY':'test','OPENAI_API_KEY':'test'}), \
+             patch.object(sys,'argv',['generate_event_deep_dives.py']), \
+             patch.object(research_pipeline,'ECONOMY_MODE',True), \
+             patch.object(research_pipeline,'MAX_EVENTS_PER_RUN',3), \
+             patch.object(research_pipeline,'create_client',return_value=db), \
+             patch.object(research_pipeline,'OpenAI'), \
+             patch.object(research_pipeline,'budget_client',side_effect=lambda client, db: client), \
+             patch.object(research_pipeline,'ledger',return_value={'event_ids':[1,2,3]}) as select, \
+             patch.object(research_pipeline,'enforce_previous_year_gate',return_value=[]), \
+             patch.object(research_pipeline,'load_event',return_value={}), \
+             patch.object(research_pipeline,'research_event',side_effect=lambda client, model, event_id, payload: Mock(event_id=event_id,numeric_series=[],metric_candidates=[])) as research, \
+             patch.object(research_pipeline,'has_event_evidence',return_value=True), \
+             patch.object(research_pipeline,'analyze_event',side_effect=lambda client, model, bundle: SimpleNamespace(event_id=bundle.event_id,charts=[])), \
+             patch.object(research_pipeline,'save_analysis') as save, \
+             patch.object(research_pipeline,'publish_ready_events',return_value=[1,2,3]):
+            research_pipeline.main()
+        self.assertEqual(select.call_args.kwargs['p_event_ids'], list(range(11,1,-1)))
+        self.assertEqual([call.args[2] for call in research.call_args_list], [1,2,3])
         self.assertEqual(save.call_count, 3)

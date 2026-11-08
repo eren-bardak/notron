@@ -18,17 +18,18 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 from supabase import create_client
 
-from daily_budget import BudgetError, budget_client
+from daily_budget import BudgetError, budget_client, ledger, coverage_rank
 from deep_dive.models import EventAnalysis, ResearchBundle, Evidence, StorySection, EditorialReview, PublicationReview
 from deep_dive.save_analysis import save_analysis
 from deep_dive.question_style import ANSWER_LABEL_RULES
 from editorial_quality import current_editorial, publication_quality, RESEARCH_REVISION
 from event_catalog import balanced_event, category_id
+from story_selection import select_category_candidates
 from country_scope import country_eligible
 from numeric_data_quality import valid_analysis_timeline
 from popularity import POLICY, current_score, event_thresholds, read_all
 
-MAX_BRIEFS = 16  # Cost/output envelope per daily pass, not a publication cap.
+MAX_BRIEFS = 16  # Response schema envelope; each request reviews one event.
 
 
 class Brief(BaseModel):
@@ -79,18 +80,15 @@ def select_pending(events, stored, now):
              and current_editorial(row.get('analysis')) and publication_quality(row.get('analysis'))}
     existing_ballots = {int(row['event_id']) for row in stored if isinstance(row.get('analysis'), dict) and row['analysis'].get('binary_questions')}
     eligible = [e for e in events if country_eligible(e) and balanced_event(e) and int(e['id']) not in ready and int(e['id']) not in existing_ballots and (e.get('data') or {}).get('newsworthy') is not False and not (e.get('data') or {}).get('publication_excluded_reason')]
-    buckets = defaultdict(deque)
-    for event in sorted(eligible, key=lambda e: (-current_score(e, now), int(e['id']))):
-        buckets[category_id(event.get('category'), event.get('title'))].append(event)
-    selected = []
-    while buckets and len(selected) < MAX_BRIEFS:
-        for key in list(buckets):
-            if len(selected) == MAX_BRIEFS:
-                break
-            selected.append(buckets[key].popleft())
-            if not buckets[key]:
-                del buckets[key]
-    return selected
+    # Ready stories count toward the same per-category ceiling as pending ones.
+    candidates = select_category_candidates(
+        [e for e in events if country_eligible(e) and balanced_event(e)
+         and (e.get('data') or {}).get('newsworthy') is not False
+         and not (e.get('data') or {}).get('publication_excluded_reason')],
+        lambda e: (-current_score(e, now), int(e['id'])))
+    pending_ids = {int(e['id']) for e in eligible}
+    return [e for e in candidates if int(e['id']) in pending_ids]
+
 
 
 def validate_brief(brief, payload):
@@ -187,7 +185,15 @@ def main():
     events = db.table('events').select('*').gte('created_at', cutoff).lte('created_at', now.isoformat()).execute().data
     ids = [int(e['id']) for e in events]
     stored = read_all(db, 'event_analyses', 'id,event_id,status,analysis', 'event_id', ids)
-    selected = select_pending(events, stored, now)
+    # Freeze one daily pool shared with deep research and supplement retries.
+    eligible = [e for e in events if country_eligible(e) and balanced_event(e)
+                and (e.get('data') or {}).get('newsworthy') is not False
+                and not (e.get('data') or {}).get('publication_excluded_reason')]
+    thresholds = event_thresholds(eligible, now)
+    eligible = [e for e in eligible if current_score(e, now) >= thresholds[int(e['id'])]]
+    candidates = select_category_candidates(eligible, coverage_rank)
+    daily_ids = set(ledger(db, 'select', p_event_ids=[int(e['id']) for e in candidates])['event_ids'])
+    selected = select_pending([e for e in eligible if int(e['id']) in daily_ids], stored, now)
     if not selected:
         return
     links = read_all(db, 'event_news', 'event_id,news_id', 'event_id', [int(e['id']) for e in selected], order_by='news_id')

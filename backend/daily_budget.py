@@ -1,4 +1,4 @@
-"""Shared, fail-closed reservations for the three-story economy batch.
+"""Shared, fail-closed reservations for the category-balanced economy batch.
 
 Prices checked against official GPT-6 Luna/search documentation on 2026-10-16.
 Amounts use integer millionths of a dollar. Uncertain calls keep their reservation.

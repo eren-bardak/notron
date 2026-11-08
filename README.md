@@ -7,12 +7,12 @@ Real-news ingestion, clustering, ranking and analysis for [Nötron](https://notr
 | Mode | Behavior | OpenAI usage |
 | --- | --- | --- |
 | `test` | Runs backend unit tests with network and `.env` loading blocked. No live database changes or new news. | None |
-| `economy` | Groups up to 300 current articles; targets the 3 events with the broadest publisher coverage. Keeps source, evidence and independent editorial checks. | Shared daily reservations required |
+| `economy` | Groups up to 300 current articles; selects up to 10 events per category, interleaved by publisher coverage. Keeps source, evidence and independent editorial checks. | Shared daily reservations required |
 | `full` | Runs the full pipeline, researching up to 20 events. | Paid |
 
 Code pushes and pull requests run only offline tests. The proposed daily runner is **Render Cron at 10:00 Türkiye** (`0 7 * * *` UTC), configured in `render.yaml`. GitHub remains for source, offline checks and explicit manual runs. See [deployment and cutover instructions](docs/render-cron.md). The YAML file alone does not activate a Render service.
 
-Economy mode still runs the real source research, independent question review, numeric-evidence checks and publication gates. It reuses acceptable saved research. Grouping uses supplied RSS text instead of an additional web search. Optional artwork/context updates wait for a full run. A batch that publishes fewer than three selected stories fails visibly; it never weakens publication checks to fill the target.
+Economy mode still runs the real source research, independent question review, numeric-evidence checks and publication gates. It reuses acceptable saved research. Grouping uses supplied RSS text instead of an additional web search. Optional artwork/context updates wait for a full run. A batch that leaves selected stories unpublished fails visibly; it never weakens publication checks to fill the target.
 
 `backend/daily_budget.sql` supplies a service-role-only PostgreSQL ledger. Each Türkiye calendar day has a $1.50 envelope, including a conservative $0.25 runner allowance per attempt. Calls reserve money atomically before contacting OpenAI. Successful calls reconcile conservatively priced usage; timeouts, parse failures and missing usage retain their full reservation. Retries share the same budget and story IDs, and overlapping hosts cannot acquire the same lease. An unavailable ledger stops paid calls. Output, search calls, request sizes, model and processing tier are restricted to the reviewed price envelope. Provider price changes, taxes and unrelated account usage are outside this application's accounting; verify actual hosting prices before activation.
 
@@ -34,3 +34,20 @@ Live modes need `SUPABASE_URL`, `SUPABASE_KEY` and `OPENAI_API_KEY`. In GitHub, 
 Pipeline order: RSS → clustering → popularity → research/publication. Current events and evidence must satisfy the existing freshness, source and editorial rules; economy mode does not publish test fixtures as news.
 
 See [backend/POPULARITY.md](backend/POPULARITY.md) for scoring rules.
+
+## Category selection ceiling
+
+Economy selection allows up to 10 candidates in each of six named categories and
+uncategorized general news (70 maximum, never a target or a spending guarantee).
+Candidates are interleaved across categories. Briefs and deep research retain all
+existing quality checks and the atomic shared daily budget; available funds may
+permit fewer stories. No paid runs are started by this change. Existing daily
+selections are immutable across retries and are not expanded mid-day.
+
+Before deploying code, apply `backend/category_limits_migration.sql` to the live
+ledger. It patches only selection validation and preserves any deployed one-day
+budget override, normal $1.50 envelope, reservations and leases. Do not replace
+the live function wholesale with the baseline SQL during an active override.
+The separately maintained Sites frontend selects the top 10 qualified stories
+across categories for Gündem using the existing popularity index. Named category
+feeds select up to 10 each independently. Gündem is not the general storage bucket.
