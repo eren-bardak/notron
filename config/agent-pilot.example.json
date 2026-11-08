@@ -1,0 +1,16 @@
+{
+  "observed_at": "2026-11-05T12:59:00Z",
+  "agent_budget": {
+    "month_utc": "2026-11",
+    "costs_complete": true,
+    "api_charged_cents": 1000,
+    "api_reserved_cents": 200,
+    "other_charged_cents": 100,
+    "other_reserved_cents": 1900,
+    "next_run_max_cents": 200
+  },
+  "news": {
+    "status": "completed",
+    "latest_published_at": "2026-11-05T07:20:00Z"
+  }
+}

@@ -2,19 +2,8 @@ name: Nötron news pipeline
 on:
   push:
     branches: [main]
-    paths:
-      - 'backend/**'
-      - 'tests/**'
-      - 'config/popularity.json'
-      - '.github/workflows/news-pipeline.yml'
-      - 'render.yaml'
   pull_request:
-    paths:
-      - 'backend/**'
-      - 'tests/**'
-      - 'config/popularity.json'
-      - '.github/workflows/news-pipeline.yml'
-      - 'render.yaml'
+  merge_group:
   workflow_dispatch:
     inputs:
       mode:
@@ -39,9 +28,11 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
-        run: python -m pip install -r backend/requirements.txt
+        run: python -m pip install -r backend/requirements.txt -r tests/requirements.txt -r agents/requirements.txt
       - name: Test with network and dotenv loading disabled
         run: python backend/run_pipeline.py --mode test
+      - name: Test cloud controllers with mocked providers
+        run: python -m unittest discover -s agents/tests -p 'test_cloud_agents.py'
   refresh:
     name: Live news refresh
     needs: checks
@@ -86,16 +77,14 @@ jobs:
   maintenance:
     name: Bounded score refresh and retry
     needs: checks
-    if: >-
-      (github.event_name == 'workflow_dispatch' && (inputs.mode == 'resume' || inputs.mode == 'scores' || inputs.mode == 'supplement')) ||
-      (github.event_name == 'push' && (contains(github.event.head_commit.message, '[bounded-resume]') || contains(github.event.head_commit.message, '[scores-only]') || contains(github.event.head_commit.message, '[category-refresh]')))
+    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'resume' || inputs.mode == 'scores' || inputs.mode == 'supplement')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
       group: notron-production-news
       cancel-in-progress: false
     env:
-      OPERATION: ${{ (inputs.mode == 'supplement' || contains(github.event.head_commit.message, '[category-refresh]')) && 'supplement' || (inputs.mode == 'scores' || contains(github.event.head_commit.message, '[scores-only]')) && 'scores' || 'resume' }}
+      OPERATION: ${{ inputs.mode }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
