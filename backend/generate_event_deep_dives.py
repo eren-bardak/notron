@@ -20,6 +20,7 @@ from popularity import POLICY, current_score, event_thresholds
 from editorial_quality import RESEARCH_REVISION, current_editorial, publication_quality
 from daily_budget import budget_client, coverage_rank, ledger, BudgetError
 from event_catalog import balanced_event
+from story_selection import MAX_SELECTED_EVENTS, select_category_candidates
 from country_scope import country_eligible
 
 
@@ -27,7 +28,7 @@ load_dotenv()
 
 EVENT_WINDOW_HOURS = POLICY["event_window_hours"]
 ECONOMY_MODE = os.getenv("NOTRON_PIPELINE_MODE") == "economy"
-MAX_EVENTS_PER_RUN = max(1, min(3 if ECONOMY_MODE else 20, int(os.getenv("MAX_DEEP_DIVES_PER_RUN", "20"))))
+MAX_EVENTS_PER_RUN = MAX_SELECTED_EVENTS if ECONOMY_MODE else max(1, min(20, int(os.getenv("MAX_DEEP_DIVES_PER_RUN", "20"))))
 
 
 def main() -> None:
@@ -86,11 +87,12 @@ def main() -> None:
     pending.sort(key=lambda event: (int(event["id"]) != args.prioritize_event, not event.get("is_visible", False)))
     selected_ids = []
     if ECONOMY_MODE:
-        ranked = sorted(eligible, key=coverage_rank)
-        selected_ids = ledger(db, 'select', p_event_ids=[int(e['id']) for e in ranked[:3]])['event_ids']
-        selected_ids = [event_id for event_id in selected_ids if event_id in {int(e['id']) for e in ranked}]
+        ranked = select_category_candidates(eligible, coverage_rank)
+        selected_ids = ledger(db, 'select', p_event_ids=[int(e['id']) for e in ranked])['event_ids']
+        by_id = {int(e['id']): e for e in eligible}
+        selected_ids = [event_id for event_id in selected_ids if event_id in by_id]
         # Reuse this day's selection after a failed run; never buy a second batch.
-        pending = [e for e in ranked if int(e['id']) in selected_ids and e in pending]
+        pending = [by_id[event_id] for event_id in selected_ids if by_id[event_id] in pending]
     failures = 0
     # Update existing covers first; missing-data research may take much longer.
     if not ECONOMY_MODE:
@@ -181,7 +183,7 @@ def main() -> None:
     published = publish_ready_events(db)
     if ECONOMY_MODE:
         verified = set(selected_ids).intersection(published)
-        target = min(3, len(eligible))
+        target = len(selected_ids)
         print(f'Daily batch verification | target={target} | published={len(verified)}', flush=True)
         if len(verified) != target:
             raise RuntimeError(f'Daily batch incomplete: {len(verified)}/{target} cross-spectrum stories passed publication checks.')

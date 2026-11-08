@@ -17,7 +17,7 @@ def pipeline_environment(mode):
     if mode == 'economy':
         model = env.get('OPENAI_ECONOMY_MODEL') or 'gpt-6-luna'
         env.pop('MAX_CLUSTER_EVENTS', None)
-        env.update(MAX_CLUSTER_ARTICLES='300', MAX_DEEP_DIVES_PER_RUN='3',
+        env.update(MAX_CLUSTER_ARTICLES='300', MAX_DEEP_DIVES_PER_RUN='70',
                    OPENAI_EVENT_MODEL=model, OPENAI_DEEP_DIVE_MODEL=model)
     return env
 

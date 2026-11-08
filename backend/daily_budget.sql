@@ -113,7 +113,15 @@ begin
   end if;
   if p_operation = 'select' then
     if cardinality(batch.event_ids) = 0 then
-      if p_event_ids is null or cardinality(p_event_ids) > 3
+      if p_event_ids is null or cardinality(p_event_ids) > 70
+          or exists (select 1 from unnest(p_event_ids) as selected(id)
+            left join public.events e on e.id = selected.id where e.id is null)
+          or exists (select 1 from public.events e where e.id = any(p_event_ids)
+            group by case when e.category in ('politics','finance','sports','magazine','technology','entertainment') then e.category
+              when e.category = 'economy' then 'finance'
+              when e.category = 'technology_science' then 'technology'
+              when e.category = 'culture' then 'entertainment' else 'general' end
+            having count(*) > 10)
           or cardinality(p_event_ids) <> (select count(distinct id) from unnest(p_event_ids) as id) then
         return jsonb_build_object('ok', false, 'reason', 'invalid story selection');
       end if;
