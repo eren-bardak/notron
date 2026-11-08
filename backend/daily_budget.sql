@@ -55,8 +55,8 @@ begin
     if exists(select 1 from public.notron_daily_batches where lease_until > now()) then
       return jsonb_build_object('ok', false, 'reason', 'another batch holds the lease');
     end if;
-    -- $1.50 total envelope. Keep $0.25 per attempt for runner compute.
-    if batch.charged + batch.reserved + 250000 > 1500000 then
+    -- $1.50 normally; $3.25 only on Istanbul 2026-11-08. Keep $0.25 per attempt for runner compute.
+    if batch.charged + batch.reserved + 250000 > (case when batch_day = date '2026-11-08' and (clock_timestamp() at time zone 'Europe/Istanbul')::date = date '2026-11-08' then 3250000 else 1500000 end) then
       return jsonb_build_object('ok', false, 'reason', 'daily budget exhausted');
     end if;
     insert into public.notron_batch_runs(id, day, result) values(p_run_id, batch_day,
@@ -104,7 +104,7 @@ begin
     select * into reservation from public.notron_api_reservations where id = p_request_id;
     -- A duplicate reservation must never authorize a second HTTP request.
     if found then return jsonb_build_object('ok', false, 'reason', 'duplicate request ID'); end if;
-    if batch.charged + batch.reserved + p_amount > 1500000 then
+    if batch.charged + batch.reserved + p_amount > (case when batch_day = date '2026-11-08' and (clock_timestamp() at time zone 'Europe/Istanbul')::date = date '2026-11-08' then 3250000 else 1500000 end) then
       return jsonb_build_object('ok', false, 'reason', 'daily budget would be exceeded');
     end if;
     insert into public.notron_api_reservations(id,run_id,amount) values(p_request_id,p_run_id,p_amount);
